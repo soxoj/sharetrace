@@ -1,2 +1,3 @@
 curl-cffi
 colorama
+cloudscraper
