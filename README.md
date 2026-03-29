@@ -30,18 +30,19 @@ pip install -r requirements.txt
 
 ## Supported sources
 
-| Name                | Extracts |
-| ------------------- | -------- |
-| [TikTok](https://tiktok.com)              | User ID, Username, Display Name, Country, Device, Timestamp |
-| [Instagram](https://instagram.com)        | Username, Display Name, User ID, Profile Pic |
-| [Discord](https://discord.com)            | User ID, Username, Display Name, Avatar, Creation Time |
-| [ChatGPT](https://chatgpt.com)            | Display Name |
-| [Perplexity](https://perplexity.ai)       | Username, Avatar, User ID |
-| [Microsoft](https://sharepoint.com)       | Email (From SharePoint/OneDrive links) |
-| [Pinterest](https://pinterest.com)        | Username, User ID, Display Name, Avatar |
-| [Substack](https://substack.com)          | User ID, Name, Handle, Bio |
-| [Suno](https://suno.com)                  | Username, Display Name, Avatar |
-| [Telegram](https://telegram.org)          | User ID (From joinchat links) |
+| Name                | Extracts | Notes |
+| ------------------- | -------- | ----- |
+| [TikTok](https://tiktok.com)              | User ID, Username, Nickname, Country, Avatar, Signature, Device, Share Method, Timestamp, Follower/Following/Video/Heart Counts, Private Account, DM Available | Requires short share link (`vm.tiktok.com` / `vt.tiktok.com`) |
+| [Instagram](https://instagram.com)        | Username, User ID, Display Name, Profile URL, Profile Pic | Sharer data expires within ~24 hours; only fresh share links contain identity info |
+| [Discord](https://discord.com)            | User ID, Username, Display Name, Avatar, Creation Time | Vanity invites may not contain inviter data |
+| [ChatGPT](https://chatgpt.com)            | Display Name | |
+| [Claude](https://claude.ai)               | Display Name, User ID | |
+| [Perplexity](https://perplexity.ai)       | Username, Avatar, User ID | |
+| [Microsoft](https://sharepoint.com)       | Email | From SharePoint/OneDrive personal links; no HTTP request needed |
+| [Pinterest](https://pinterest.com)        | Username, User ID, Display Name, Avatar, Profile URL | Requires short share link (`pin.it`) with invite code |
+| [Substack](https://substack.com)          | User ID, Name, Handle, Bio, Avatar, Profile Setup Date | Requires referral share link (`?r=` parameter) |
+| [Suno](https://suno.com)                  | Username, Display Name, Avatar, Profile URL | |
+| [Telegram](https://telegram.org)          | User ID | Decoded from joinchat link hash; no HTTP request needed. Links starting with `AAAAA` decode to user_id=0 and contain no useful data |
 
 ## 😊 SOWEL classification
 This tool uses the following OSINT techniques:

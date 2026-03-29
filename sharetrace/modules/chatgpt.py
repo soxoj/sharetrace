@@ -28,5 +28,5 @@ def chatgpt(url):
             }
         }
 
-    except requests.RequestException as e:
+    except Exception as e:
         return {"error": f"Request failed: {str(e)}"}

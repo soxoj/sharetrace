@@ -42,6 +42,8 @@ def instagram(url):
 
         user_data = extract_json_object(response.text, "user_for_shid_logged_out")
         if not user_data:
+            user_data = extract_json_object(response.text, "sharer")
+        if not user_data:
             return {"error": "Could not find share user data in response"}
 
         username = user_data.get("username")
