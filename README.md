@@ -44,6 +44,10 @@ pip install -r requirements.txt
 | [Suno](https://suno.com)                  | Username, Display Name, Avatar, Profile URL | |
 | [Telegram](https://telegram.org)          | User ID | Decoded from joinchat link hash; no HTTP request needed. Links starting with `AAAAA` decode to user_id=0 and contain no useful data |
 
+## 🌐 Web interface (community)
+
+A self-hosted Flask wrapper with a browser UI is available: [voelspriet/sharetrace-web](https://github.com/voelspriet/sharetrace-web) — live demo at <https://share.whopostedwhat.com>. Maintained separately; all extraction logic still lives in this repo.
+
 ## 😊 SOWEL classification
 This tool uses the following OSINT techniques:
 - [SOTL-1.4. Analyze Internal Identifiers](https://sowel.soxoj.com/internal-identifiers)
