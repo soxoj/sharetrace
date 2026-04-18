@@ -14,6 +14,21 @@ PLATFORM_PATTERNS = [
     (r'substack\.com/@[^/]+/note/', 'substack'),
     (r'suno\.com/s/[A-Za-z0-9]+', 'suno'),
     (r't\.me/joinchat/[A-Za-z0-9_-]+', 'telegram'),
+    (
+        r'(docs\.google\.com/(document|spreadsheets|presentation|drawings|forms)/d/'
+        r'|drive\.google\.com/file/d/'
+        r'|script\.google\.com/d/'
+        r'|jamboard\.google\.com/d/'
+        r'|google\.com/maps/d/)',
+        'gdoc',
+    ),
+    (r'github\.com/[^/]+/[^/]+/(?:commit|pull/\d+/commits)/[0-9a-f]{7,40}', 'github'),
+    (
+        r'^https?://(?:www\.)?github\.com/'
+        r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?'
+        r'/?(?:\?.*)?$',
+        'github',
+    ),
 ]
 
 PARSERS = {
@@ -28,6 +43,8 @@ PARSERS = {
     'suno': 'suno',
     'telegram': 'telegram',
     'claude': 'claude',
+    'gdoc': 'gdoc',
+    'github': 'github',
 }
 
 

@@ -41,6 +41,8 @@ PLATFORM_NAMES = {
     'substack': 'Substack',
     'telegram': 'Telegram',
     'suno': 'Suno',
+    'gdoc': 'Google Docs',
+    'github': 'GitHub',
 }
 
 FIELD_LABELS = {
@@ -66,6 +68,15 @@ FIELD_LABELS = {
     'previous_name': 'Previous Name',
     'profile_set_up_at': 'Profile Set Up',
     'reader_installed_at': 'Reader Installed',
+    'doc_id': 'Document ID',
+    'google_id': 'Google ID',
+    'modified_at': 'Last Edit',
+    'public_permissions': 'Public Permissions',
+    'commit_sha': 'Commit',
+    'repo': 'Repository',
+    'emails': 'Emails',
+    'noreply_emails': 'No-reply Emails',
+    'is_noreply': 'Privacy-masked',
 }
 
 

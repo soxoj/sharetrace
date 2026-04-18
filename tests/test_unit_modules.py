@@ -436,3 +436,218 @@ class TestTikTok:
         from sharetrace.modules.tiktok import tiktok
         result = tiktok("https://tiktok.com/@someuser")
         assert "error" in result
+
+
+# ---------------------------------------------------------------------------
+# Google Docs
+# ---------------------------------------------------------------------------
+class TestGDoc:
+    SAMPLE_SUCCESS = {
+        "createdDate": "2024-01-02T03:04:05.678Z",
+        "modifiedDate": "2024-06-07T08:09:10.111Z",
+        "permissions": [
+            {"id": "anyoneWithLink", "role": "reader", "type": "anyone"},
+            {
+                "id": "1234567890",
+                "role": "owner",
+                "name": "Jane Doe",
+                "emailAddress": "jane@example.com",
+                "photoLink": "https://lh3.googleusercontent.com/a/x",
+                "type": "user",
+            },
+        ],
+        "userPermission": {"id": "me", "role": "reader"},
+    }
+
+    VALID_URL = (
+        "https://docs.google.com/document/d/"
+        "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit"
+    )
+
+    @patch("sharetrace.modules.gdoc.requests")
+    def test_extract_owner(self, mock_requests):
+        mock_resp = MagicMock()
+        mock_resp.text = json.dumps(self.SAMPLE_SUCCESS)
+        mock_resp.json.return_value = self.SAMPLE_SUCCESS
+        mock_resp.status_code = 200
+        mock_requests.get.return_value = mock_resp
+
+        from sharetrace.modules.gdoc import gdoc
+        result = gdoc(self.VALID_URL)
+        assert "data" in result
+        assert result["data"]["email"] == "jane@example.com"
+        assert result["data"]["name"] == "Jane Doe"
+        assert result["data"]["google_id"] == "1234567890"
+        assert result["data"]["public_permissions"] == "reader"
+        assert result["data"]["avatar_url"].startswith("https://")
+        assert result["data"]["created_at"] is not None
+        assert result["data"]["modified_at"] is not None
+
+    @patch("sharetrace.modules.gdoc.requests")
+    def test_file_not_found(self, mock_requests):
+        mock_resp = MagicMock()
+        mock_resp.text = '{"error": {"code": 404, "message": "File not found: xyz"}}'
+        mock_resp.status_code = 404
+        mock_requests.get.return_value = mock_resp
+
+        from sharetrace.modules.gdoc import gdoc
+        result = gdoc(self.VALID_URL)
+        assert "error" in result
+        assert "not found" in result["error"].lower()
+
+    @patch("sharetrace.modules.gdoc.time.sleep")
+    @patch("sharetrace.modules.gdoc.requests")
+    def test_rate_limit_exhaustion(self, mock_requests, mock_sleep):
+        mock_resp = MagicMock()
+        mock_resp.text = '{"error": {"errors": [{"reason": "rateLimitExceeded"}]}}'
+        mock_resp.status_code = 403
+        mock_requests.get.return_value = mock_resp
+
+        from sharetrace.modules.gdoc import gdoc
+        result = gdoc(self.VALID_URL)
+        assert "error" in result
+        assert mock_requests.get.call_count == 5  # MAX_RETRIES
+
+    def test_invalid_url(self):
+        from sharetrace.modules.gdoc import gdoc
+        result = gdoc("https://example.com/something")
+        assert "error" in result
+        assert "invalid" in result["error"].lower()
+
+    def test_url_pattern_matches_but_id_missing(self):
+        from sharetrace.modules.gdoc import gdoc
+        # Pattern is satisfied by segment, but no 25+ char id follows
+        result = gdoc("https://docs.google.com/document/d/short/edit")
+        assert "error" in result
+
+    @patch("sharetrace.modules.gdoc.requests")
+    def test_missing_owner_permission(self, mock_requests):
+        payload = {
+            "createdDate": "2024-01-02T03:04:05.678Z",
+            "modifiedDate": "2024-01-02T03:04:05.678Z",
+            "permissions": [{"id": "anyoneWithLink", "role": "reader"}],
+            "userPermission": {"id": "me", "role": "reader"},
+        }
+        mock_resp = MagicMock()
+        mock_resp.text = json.dumps(payload)
+        mock_resp.json.return_value = payload
+        mock_resp.status_code = 200
+        mock_requests.get.return_value = mock_resp
+
+        from sharetrace.modules.gdoc import gdoc
+        result = gdoc(self.VALID_URL)
+        assert "error" in result
+        assert "identity" in result["error"].lower()
+
+
+# ---------------------------------------------------------------------------
+# GitHub
+# ---------------------------------------------------------------------------
+class TestGitHub:
+    VALID_COMMIT_URL = (
+        "https://github.com/torvalds/linux/commit/"
+        "1da177e4c3f41524e886b7f1b8a0c1fc7321cac2"
+    )
+    VALID_PROFILE_URL = "https://github.com/torvalds"
+
+    PATCH_BODY = (
+        "From 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2 Mon Sep 17 00:00:00 2001\n"
+        "From: Linus Torvalds <torvalds@linuxfoundation.org>\n"
+        "Date: Sat, 16 Apr 2005 15:20:36 -0700\n"
+        "Subject: Initial commit\n\n"
+        "diff --git a/Makefile b/Makefile\n"
+    )
+
+    @patch("sharetrace.modules.github.requests")
+    def test_commit_route_happy(self, mock_requests):
+        resp = MagicMock(status_code=200, text=self.PATCH_BODY)
+        mock_requests.get.return_value = resp
+        from sharetrace.modules.github import github
+        r = github(self.VALID_COMMIT_URL)
+        assert r["data"]["name"] == "Linus Torvalds"
+        assert r["data"]["email"] == "torvalds@linuxfoundation.org"
+        assert r["data"]["repo"] == "torvalds/linux"
+        assert r["data"]["commit_sha"].startswith("1da177e4")
+        assert "is_noreply" not in r["data"]
+
+    @patch("sharetrace.modules.github.requests")
+    def test_commit_route_noreply(self, mock_requests):
+        body = self.PATCH_BODY.replace(
+            "torvalds@linuxfoundation.org",
+            "12345+ghost@users.noreply.github.com",
+        )
+        resp = MagicMock(status_code=200, text=body)
+        mock_requests.get.return_value = resp
+        from sharetrace.modules.github import github
+        r = github(self.VALID_COMMIT_URL)
+        assert r["data"]["is_noreply"] is True
+        assert r["data"]["email"].endswith("users.noreply.github.com")
+
+    @patch("sharetrace.modules.github.requests")
+    def test_commit_route_quoted_display_name(self, mock_requests):
+        # Pathological but RFC-valid: quoted display name containing a '<'.
+        # Naive regex would bind to the first '<' and return "inner" as email.
+        body = (
+            'From abc123 Mon Sep 17 00:00:00 2001\n'
+            'From: "weird <inner>" <real@example.com>\n'
+            'Date: Sat, 16 Apr 2005 15:20:36 -0700\n'
+            'Subject: Edge case\n\n'
+            'diff --git a/x b/x\n'
+        )
+        resp = MagicMock(status_code=200, text=body)
+        mock_requests.get.return_value = resp
+        from sharetrace.modules.github import github
+        r = github(self.VALID_COMMIT_URL)
+        assert r["data"]["email"] == "real@example.com"
+
+    @patch("sharetrace.modules.github.requests")
+    def test_commit_route_404(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=404, text="Not Found")
+        from sharetrace.modules.github import github
+        r = github(self.VALID_COMMIT_URL)
+        assert "error" in r
+        assert "not found" in r["error"].lower() or "private" in r["error"].lower()
+
+    @patch("sharetrace.modules.github.requests")
+    def test_profile_route_happy(self, mock_requests):
+        events = [
+            {
+                "type": "PushEvent",
+                "payload": {
+                    "commits": [
+                        {"author": {"name": "Linus", "email": "torvalds@linuxfoundation.org"}},
+                        {"author": {"name": "Linus", "email": "12345+ghost@users.noreply.github.com"}},
+                    ]
+                },
+            },
+            {"type": "WatchEvent", "payload": {}},  # ignored
+        ]
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = events
+        mock_requests.get.return_value = resp
+        from sharetrace.modules.github import github
+        r = github(self.VALID_PROFILE_URL)
+        assert r["data"]["username"] == "torvalds"
+        assert {"name": "Linus", "email": "torvalds@linuxfoundation.org"} in r["data"]["emails"]
+        assert r["data"]["noreply_emails"] == ["12345+ghost@users.noreply.github.com"]
+
+    @patch("sharetrace.modules.github.requests")
+    def test_profile_route_empty(self, mock_requests):
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = []
+        mock_requests.get.return_value = resp
+        from sharetrace.modules.github import github
+        r = github(self.VALID_PROFILE_URL)
+        assert "error" in r
+
+    @patch("sharetrace.modules.github.requests")
+    def test_profile_route_rate_limited(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=403, text="rate limit")
+        from sharetrace.modules.github import github
+        r = github(self.VALID_PROFILE_URL)
+        assert "rate" in r["error"].lower()
+
+    def test_invalid_url(self):
+        from sharetrace.modules.github import github
+        r = github("https://example.com")
+        assert "error" in r

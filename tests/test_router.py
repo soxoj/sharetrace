@@ -20,6 +20,21 @@ class TestDetectPlatform:
         ("https://substack.com/@someuser/note/12345", "substack"),
         ("https://suno.com/s/abc123XYZ", "suno"),
         ("https://t.me/joinchat/AAAA_BBBBccccDDDD", "telegram"),
+        ("https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit", "gdoc"),
+        ("https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/", "gdoc"),
+        ("https://docs.google.com/presentation/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/", "gdoc"),
+        ("https://docs.google.com/drawings/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/", "gdoc"),
+        ("https://docs.google.com/forms/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/", "gdoc"),
+        ("https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/view", "gdoc"),
+        ("https://script.google.com/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit", "gdoc"),
+        ("https://jamboard.google.com/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/viewer", "gdoc"),
+        ("https://www.google.com/maps/d/edit?mid=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms", "gdoc"),
+        ("https://github.com/torvalds/linux/commit/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2", "github"),
+        ("https://github.com/torvalds/linux/pull/42/commits/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2", "github"),
+        ("https://github.com/torvalds/", "github"),
+        ("https://github.com/torvalds", "github"),
+        ("https://www.github.com/torvalds", "github"),
+        ("https://github.com/torvalds?tab=repositories", "github"),
     ])
     def test_valid_urls(self, url, expected):
         assert detect_platform(url) == expected
@@ -31,6 +46,15 @@ class TestDetectPlatform:
         "https://instagram.com/username",
         "not a url",
         "",
+        "https://docs.google.com/",
+        "https://www.google.com/maps/place/xyz",
+        "https://github.com/",
+        "https://github.com/torvalds/linux",
+        "https://github.com/torvalds/linux/issues/1",
+        "https://github.com/torvalds/linux/commit/",
+        "https://github.com/torvalds/linux/commit/xyz",
+        "https://github.com/foo-",          # trailing hyphen not allowed
+        "https://github.com/-foo",          # leading hyphen not allowed
     ])
     def test_invalid_urls(self, url):
         assert detect_platform(url) is None
@@ -56,6 +80,6 @@ class TestGetSupportedPlatforms:
     def test_expected_platforms(self):
         platforms = get_supported_platforms()
         expected = ["tiktok", "chatgpt", "discord", "instagram", "microsoft",
-                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude"]
+                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github"]
         for p in expected:
             assert p in platforms, f"{p} missing from supported platforms"
