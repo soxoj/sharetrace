@@ -35,6 +35,21 @@ class TestDetectPlatform:
         ("https://github.com/torvalds", "github"),
         ("https://www.github.com/torvalds", "github"),
         ("https://github.com/torvalds?tab=repositories", "github"),
+        # GitLab
+        ("https://gitlab.com/gitlab-org/gitlab-foss/-/commit/c6da9d7f1b804966d13abd8aab4e87b0913af4b2", "gitlab"),
+        ("https://gitlab.com/group/subgroup/project/-/commit/abcdef1234567", "gitlab"),
+        ("https://gitlab.com/gitlab-bot", "gitlab"),
+        ("https://gitlab.com/gitlab-bot/", "gitlab"),
+        ("https://www.gitlab.com/gitlab-bot", "gitlab"),
+        # Hugging Face
+        ("https://huggingface.co/karpathy", "huggingface"),
+        ("https://huggingface.co/karpathy/llm.c", "huggingface"),
+        ("https://www.huggingface.co/julien-c", "huggingface"),
+        # LinkedIn
+        ("https://www.linkedin.com/in/reidhoffman", "linkedin"),
+        ("https://linkedin.com/in/satyanadella", "linkedin"),
+        ("https://www.linkedin.com/posts/reidhoffman_some-slug-abc123-activity-123456", "linkedin"),
+        ("https://www.linkedin.com/pulse/article-slug-here", "linkedin"),
     ])
     def test_valid_urls(self, url, expected):
         assert detect_platform(url) == expected
@@ -55,6 +70,13 @@ class TestDetectPlatform:
         "https://github.com/torvalds/linux/commit/xyz",
         "https://github.com/foo-",          # trailing hyphen not allowed
         "https://github.com/-foo",          # leading hyphen not allowed
+        # GitLab negatives — too-deep paths that aren't commit URLs
+        "https://gitlab.com/gitlab-org/gitlab-foss",      # project URL, not commit, not bare profile
+        "https://gitlab.com/",                             # empty path
+        # LinkedIn negatives — unsupported sub-routes
+        "https://www.linkedin.com/company/microsoft",
+        "https://www.linkedin.com/feed/",
+        "https://www.linkedin.com/",
     ])
     def test_invalid_urls(self, url):
         assert detect_platform(url) is None
@@ -80,6 +102,7 @@ class TestGetSupportedPlatforms:
     def test_expected_platforms(self):
         platforms = get_supported_platforms()
         expected = ["tiktok", "chatgpt", "discord", "instagram", "microsoft",
-                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github"]
+                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github",
+                    "gitlab", "huggingface", "linkedin"]
         for p in expected:
             assert p in platforms, f"{p} missing from supported platforms"
