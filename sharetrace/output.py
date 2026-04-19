@@ -43,6 +43,7 @@ PLATFORM_NAMES = {
     'suno': 'Suno',
     'gdoc': 'Google Docs',
     'github': 'GitHub',
+    'notion': 'Notion',
 }
 
 FIELD_LABELS = {
@@ -77,6 +78,9 @@ FIELD_LABELS = {
     'emails': 'Emails',
     'noreply_emails': 'No-reply Emails',
     'is_noreply': 'Privacy-masked',
+    'space_name': 'Workspace',
+    'space_domain': 'Workspace Domain',
+    'other_editors': 'Other Editors',
 }
 
 

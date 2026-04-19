@@ -1,5 +1,6 @@
 <h1 align="center">ShareTrace</h1>
 <p align="center">🎭 Reveal the identity behind a share link</p>
+<p align="center"><b>14 sources</b> • no API keys • one command</p>
 <p align="center">
   <img src="assets/capture.png" />
 </p>
@@ -64,6 +65,7 @@ pip install -r requirements.txt
 | [Telegram](https://telegram.org)          | User ID | Decoded from joinchat link hash; no HTTP request needed. Links starting with `AAAAA` decode to user_id=0 and contain no useful data |
 | [Google Docs](https://docs.google.com)    | Owner Email, Name, Google ID, Avatar, Creation Date, Last Edit | Works for Docs, Sheets, Slides, Drawings, Forms, Drive files, Apps Script, Jamboard, My Maps. Requires document to be publicly shared. API key overridable via `SHARETRACE_GDOC_API_KEY` |
 | [GitHub](https://github.com)              | Email, Name, Commit SHA, Repo (commit URL); Username, Emails list (profile URL) | Commit URL: parses `.patch` mbox `From:` header. Profile URL: scans recent public PushEvents (last 90 days). `users.noreply.github.com` emails flagged. Profile route subject to GitHub's 60/hr unauth rate limit |
+| [Notion](https://notion.so)               | Name, Email, Avatar, User ID, Workspace Name/Domain, Other Editors | Public pages leak editor UUIDs in block permissions; resolved in one `syncRecordValuesMain` POST (no auth, no cookies). Works for `notion.so/Page-<uuid>` and `*.notion.site/` links |
 
 ## 🌐 Web interface (community)
 
@@ -82,6 +84,7 @@ This tool uses the following OSINT techniques:
 
 - **[Malfrats/xeuledoc](https://github.com/Malfrats/xeuledoc)** by [@mxrch](https://github.com/mxrch) and [@megadose](https://github.com/megadose) — the Google Drive `v2beta` owner-metadata endpoint was first documented here (GPLv3). The `gdoc` module is a clean-room rewrite against the same public API.
 - **[avonture.be](https://www.avonture.be/blog/github-retrieve-email/)** by [@cavo789](https://github.com/cavo789) — documented the GitHub `.patch` trick that the `github` module's commit route relies on.
+- **Notion editor-leak technique** — public pages expose editor UUIDs in block permissions, resolvable to names/emails/photos via `syncRecordValuesMain` with no auth. Originally discovered by [@SpongeBhav](https://x.com/SpongeBhav/status/2045947981057454571) ([@baibhavanand](https://github.com/baibhavanand) on GitHub) and amplified by [@weezerosint](https://x.com/weezerosint/status/2045849358462222720).
 
 ## ⚠️ Ethical use & disclaimer
 

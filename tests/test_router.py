@@ -35,6 +35,8 @@ class TestDetectPlatform:
         ("https://github.com/torvalds", "github"),
         ("https://www.github.com/torvalds", "github"),
         ("https://github.com/torvalds?tab=repositories", "github"),
+        ("https://www.notion.so/Page-Name-fddafc82569742378ef439681f4709b0", "notion"),
+        ("https://block-by-block.notion.site/Download-digital-goodies-fddafc82569742378ef439681f4709b0", "notion"),
     ])
     def test_valid_urls(self, url, expected):
         assert detect_platform(url) == expected
@@ -80,6 +82,6 @@ class TestGetSupportedPlatforms:
     def test_expected_platforms(self):
         platforms = get_supported_platforms()
         expected = ["tiktok", "chatgpt", "discord", "instagram", "microsoft",
-                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github"]
+                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github", "notion"]
         for p in expected:
             assert p in platforms, f"{p} missing from supported platforms"

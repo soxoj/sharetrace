@@ -22,6 +22,7 @@ PLATFORM_PATTERNS = [
         r'|google\.com/maps/d/)',
         'gdoc',
     ),
+    (r'(notion\.so/|\.notion\.site(/|$))', 'notion'),
     (r'github\.com/[^/]+/[^/]+/(?:commit|pull/\d+/commits)/[0-9a-f]{7,40}', 'github'),
     (
         r'^https?://(?:www\.)?github\.com/'
@@ -45,6 +46,7 @@ PARSERS = {
     'claude': 'claude',
     'gdoc': 'gdoc',
     'github': 'github',
+    'notion': 'notion',
 }
 
 

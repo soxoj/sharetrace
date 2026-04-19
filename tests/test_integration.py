@@ -329,6 +329,38 @@ class TestInstagramIntegration:
 
 
 # ---------------------------------------------------------------------------
+# Notion (real HTTP) — public page leaks editor UUIDs, resolved via syncRecordValuesMain
+# ---------------------------------------------------------------------------
+class TestNotionIntegration:
+    def test_share_link_with_multiple_editors(self):
+        from sharetrace.modules.notion import notion
+        url = "https://block-by-block.notion.site/Download-digital-goodies-fddafc82569742378ef439681f4709b0"
+        try:
+            result = notion(url)
+        except Exception:
+            pytest.skip("Notion API unavailable")
+        if "error" in result:
+            pytest.skip(f"Notion returned error: {result['error']}")
+
+        data = result["data"]
+        assert data["space_name"] == "Block by Block"
+        assert data["space_domain"] == "block-by-block"
+
+        # Primary editor
+        assert data["name"] == "Cory Etzkorn"
+        assert data["email"] == "cory@makenotion.com"
+        assert data["user_id"] == "c6a09170-275a-45d3-ada3-7c3a05cc692d"
+        assert data["avatar_url"].startswith("https://")
+
+        # Other editor leaked via block permissions
+        others = data.get("other_editors", [])
+        assert any(
+            e.get("name") == "Andrea Lim" and e.get("email") == "andrea@makenotion.com"
+            for e in others
+        ), f"Andrea Lim not found in other_editors: {others}"
+
+
+# ---------------------------------------------------------------------------
 # Full pipeline test via parse_url
 # ---------------------------------------------------------------------------
 class TestParseUrlIntegration:
