@@ -119,6 +119,40 @@ class TestLinkedInUnit:
         assert "is_blocked" not in result
 
     @patch("sharetrace.modules.linkedin.requests")
+    def test_post_with_json_ld_extracts_author(self, mock_requests):
+        """Post URLs expose author via JSON-LD; that path is preferred over og:title."""
+        json_ld = (
+            '{"@context":"http://schema.org","@type":"SocialMediaPosting",'
+            '"headline":"My post text","datePublished":"2026-04-28T10:14:58Z",'
+            '"author":{"@type":"Person","name":"Dmitry Danilov",'
+            '"url":"https://nl.linkedin.com/in/danilov-d",'
+            '"image":{"@type":"ImageObject","url":"https://media.licdn.com/avatar.jpg"},'
+            '"interactionStatistic":{"@type":"InteractionCounter",'
+            '"interactionType":"http://schema.org/FollowAction","userInteractionCount":6551}}}'
+        )
+        # og:title with embedded newline (regression case from real LinkedIn HTML)
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="My post text\n\nlong content | Author Name | 16 comments"/>'
+            f'<script type="application/ld+json">{json_ld}</script>'
+            '</head><body>' + ("x" * 5100) + '</body></html>'
+        )
+        mock_requests.get.return_value = _make_resp(200, html)
+
+        from sharetrace.modules.linkedin import linkedin
+        result = linkedin("https://www.linkedin.com/posts/danilov-d_xyz-share-123-jnF_")
+
+        assert "data" in result, f"Expected data, got: {result}"
+        data = result["data"]
+        assert data["display_name"] == "Dmitry Danilov"
+        assert data["url_type"] == "post"
+        assert data["profile_url"] == "https://nl.linkedin.com/in/danilov-d"
+        assert data["avatar_url"] == "https://media.licdn.com/avatar.jpg"
+        assert data["follower_count"] == 6551
+        assert data["headline"] == "My post text"
+        assert data["published_at"] == "2026-04-28T10:14:58Z"
+
+    @patch("sharetrace.modules.linkedin.requests")
     def test_small_body_without_og_title_is_blocked(self, mock_requests):
         """Response <5KB with no og:title is treated as auth-wall block."""
         # Body is tiny (< 5000 bytes) and has no og:title

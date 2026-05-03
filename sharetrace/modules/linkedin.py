@@ -8,10 +8,16 @@ No retries: retrying does not help against LinkedIn's bot detection.
 """
 from __future__ import annotations
 
+import json
 import re
 from curl_cffi import requests
 
 URL_RE = re.compile(r'linkedin\.com/(in|posts|pulse)/([A-Za-z0-9_%-]+)')
+
+_JSON_LD_RE = re.compile(
+    r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.+?)</script>',
+    re.IGNORECASE | re.DOTALL,
+)
 
 # Chromium UA — realistic desktop Linux Chrome fingerprint.
 # Do NOT use sharetrace/1.0 — LinkedIn rejects non-browser UAs instantly.
@@ -39,15 +45,15 @@ _MIN_CONTENT_BYTES = 5_000
 
 _OG_TITLE_RE = re.compile(
     r'<meta\s+property=["\']og:title["\']\s+content=["\'](.*?)["\']',
-    re.IGNORECASE,
+    re.IGNORECASE | re.DOTALL,
 )
 _OG_DESC_RE = re.compile(
     r'<meta\s+property=["\']og:description["\']\s+content=["\'](.*?)["\']',
-    re.IGNORECASE,
+    re.IGNORECASE | re.DOTALL,
 )
 _OG_IMAGE_RE = re.compile(
     r'<meta\s+property=["\']og:image["\']\s+content=["\'](.*?)["\']',
-    re.IGNORECASE,
+    re.IGNORECASE | re.DOTALL,
 )
 
 _BLOCKED_RESPONSE = {
@@ -60,6 +66,43 @@ _URL_TYPE_MAP = {
     "posts": "post",
     "pulse": "pulse",
 }
+
+
+def _parse_json_ld(body: str) -> dict | None:
+    """Extract author info from JSON-LD structured data (posts and pulse have rich data)."""
+    m = _JSON_LD_RE.search(body)
+    if not m:
+        return None
+    try:
+        data = json.loads(m.group(1))
+    except (ValueError, json.JSONDecodeError):
+        return None
+
+    # SocialMediaPosting (posts) and NewsArticle (pulse) carry an `author` block
+    author = data.get("author") or data.get("creator")
+    if isinstance(author, list) and author:
+        author = author[0]
+    if not isinstance(author, dict) or not author.get("name"):
+        return None
+
+    out = {"display_name": author["name"]}
+    if author.get("url"):
+        out["profile_url"] = author["url"]
+    image = author.get("image")
+    if isinstance(image, dict) and image.get("url"):
+        out["avatar_url"] = image["url"]
+    elif isinstance(image, str):
+        out["avatar_url"] = image
+
+    interaction = author.get("interactionStatistic")
+    if isinstance(interaction, dict) and interaction.get("userInteractionCount"):
+        out["follower_count"] = interaction["userInteractionCount"]
+
+    if data.get("headline"):
+        out["headline"] = data["headline"]
+    if data.get("datePublished"):
+        out["published_at"] = data["datePublished"]
+    return out
 
 
 def linkedin(url: str) -> dict:
@@ -94,7 +137,15 @@ def linkedin(url: str) -> dict:
     if "authwall" in body.lower():
         return _BLOCKED_RESPONSE
 
-    # Auth-wall detection #2: response too small AND no og:title
+    # Try JSON-LD first — posts and pulse expose author as structured data,
+    # which is more reliable than the multi-line og:title format.
+    json_ld_data = _parse_json_ld(body)
+    if json_ld_data:
+        json_ld_data["url_type"] = url_type
+        json_ld_data.setdefault("profile_url", canonical_url)
+        return {"data": json_ld_data}
+
+    # OG fallback — primary path for profile (`/in/`) URLs
     og_title_m = _OG_TITLE_RE.search(body)
     if len(body) < _MIN_CONTENT_BYTES and not og_title_m:
         return _BLOCKED_RESPONSE

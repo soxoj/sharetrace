@@ -20,6 +20,8 @@ def main():
     parser.add_argument('-j', '--json', action='store_true', help='Output results as JSON')
     parser.add_argument('-q', '--quiet', action='store_true', help='Suppress banner and extra output')
     parser.add_argument('-l', '--list', action='store_true', help='List supported platforms')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Show detailed error info from the parser (raw message, status, traceback)')
     
     if ('-h' in sys.argv or '--help' in sys.argv) and ('-q' not in sys.argv and '--quiet' not in sys.argv):
         print_banner()
@@ -66,26 +68,41 @@ def main():
         print(f"[🔍] Analyzing {platform.capitalize()} link...\n")
     try:
         result = parser_func(url)
-        
+
         if args.json:
             if 'data' in result:
                 result['platform'] = platform
-            if 'error' in result:
-                result['error'] = "Unable to extract information."
+            if 'error' in result and not args.verbose:
+                # In non-verbose mode, mask raw parser error and strip debug fields
+                result = {"error": "Unable to extract information."}
             print(json.dumps(result, indent=2))
         else:
             if 'error' in result:
-                 print_error("Unable to extract information.", quiet=True)
+                if args.verbose:
+                    details = {k: v for k, v in result.items() if k != 'error'}
+                    print_error(result['error'], quiet=True, details=details or None)
+                else:
+                    print_error("Unable to extract information.", quiet=True)
             else:
-                 print_result(platform, result, quiet=True)
-            
+                print_result(platform, result, quiet=True)
+
     except Exception as e:
-        if args.json:
-            print(json.dumps({"error": "Unable to extract information."}, indent=2))
+        if args.verbose:
+            import traceback
+            if args.json:
+                print(json.dumps({
+                    "error": str(e),
+                    "exception_type": type(e).__name__,
+                    "traceback": traceback.format_exc(),
+                }, indent=2))
+            else:
+                print_error(f"{type(e).__name__}: {e}", quiet=args.quiet)
+                traceback.print_exc()
         else:
-            print_error("Unable to extract information.", quiet=args.quiet)
-            if not args.quiet:
-                pass 
+            if args.json:
+                print(json.dumps({"error": "Unable to extract information."}, indent=2))
+            else:
+                print_error("Unable to extract information.", quiet=args.quiet)
         sys.exit(1)
 
 if __name__ == "__main__":

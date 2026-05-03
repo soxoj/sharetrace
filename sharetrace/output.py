@@ -94,6 +94,7 @@ FIELD_LABELS = {
     'space_name': 'Workspace',
     'space_domain': 'Workspace Domain',
     'other_editors': 'Other Editors',
+    'published_at': 'Published',
 }
 
 
@@ -150,10 +151,15 @@ def print_result(platform: str, result: Dict[str, Any], quiet: bool = False):
     print()
 
 
-def print_error(message: str, quiet: bool = False):
+def print_error(message: str, quiet: bool = False, details: Dict[str, Any] = None):
     if not quiet:
         print_banner()
-    print(f"{Colors.RED}{Colors.BOLD}[ERROR]{Colors.RESET} {message}\n")
+    print(f"{Colors.RED}{Colors.BOLD}[ERROR]{Colors.RESET} {message}")
+    if details:
+        for key, value in details.items():
+            label = FIELD_LABELS.get(key, key.replace('_', ' ').title())
+            print(f"  ├─ {Colors.DIM}{label}:{Colors.RESET} {value}")
+    print()
 
 
 def print_supported_platforms():
