@@ -1,3 +1,5 @@
+__version__ = "0.1.0"
+
 from .router import detect_platform, get_parser
 
 def parse_url(url):

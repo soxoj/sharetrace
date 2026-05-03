@@ -2,3 +2,8 @@ __pycache__
 LLM/
 tools/
 
+# Packaging artifacts
+dist/
+build/
+*.egg-info/
+.venv/

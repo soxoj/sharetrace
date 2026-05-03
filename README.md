@@ -9,8 +9,12 @@
 ## 💻 Quick Start
 
 ```bash
-python -m sharetrace <url>
+pip install sharetrace-osint
+sharetrace <url>
 ```
+Or use two community-run alternatives:
+- **Telegram bot** — [@sharetrace_bot](https://t.me/sharetrace_bot)
+- **Web UI** — <https://share.whopostedwhat.com/>
 
 ## 📖 Usage examples
 
