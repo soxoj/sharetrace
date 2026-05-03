@@ -41,11 +41,13 @@ PLATFORM_NAMES = {
     'substack': 'Substack',
     'telegram': 'Telegram',
     'suno': 'Suno',
+    'claude': 'Claude',
     'gdoc': 'Google Docs',
     'github': 'GitHub',
     'gitlab': 'GitLab',
     'huggingface': 'Hugging Face',
     'linkedin': 'LinkedIn',
+    'notion': 'Notion',
 }
 
 FIELD_LABELS = {
@@ -89,6 +91,9 @@ FIELD_LABELS = {
     'public_email': 'Public Email',
     'url_type': 'URL Type',
     'project': 'Project',
+    'space_name': 'Workspace',
+    'space_domain': 'Workspace Domain',
+    'other_editors': 'Other Editors',
 }
 
 

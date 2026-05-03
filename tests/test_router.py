@@ -50,6 +50,8 @@ class TestDetectPlatform:
         ("https://linkedin.com/in/satyanadella", "linkedin"),
         ("https://www.linkedin.com/posts/reidhoffman_some-slug-abc123-activity-123456", "linkedin"),
         ("https://www.linkedin.com/pulse/article-slug-here", "linkedin"),
+        ("https://www.notion.so/Page-Name-fddafc82569742378ef439681f4709b0", "notion"),
+        ("https://block-by-block.notion.site/Download-digital-goodies-fddafc82569742378ef439681f4709b0", "notion"),
     ])
     def test_valid_urls(self, url, expected):
         assert detect_platform(url) == expected
@@ -103,6 +105,7 @@ class TestGetSupportedPlatforms:
         platforms = get_supported_platforms()
         expected = ["tiktok", "chatgpt", "discord", "instagram", "microsoft",
                     "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github",
-                    "gitlab", "huggingface", "linkedin"]
+                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github",
+                    "gitlab", "huggingface", "linkedin", "notion"]
         for p in expected:
             assert p in platforms, f"{p} missing from supported platforms"
