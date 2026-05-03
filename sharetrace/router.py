@@ -30,6 +30,23 @@ PLATFORM_PATTERNS = [
         r'/?(?:\?.*)?$',
         'github',
     ),
+    # GitLab — commit pattern (specific) before profile pattern (broad).
+    (r'gitlab\.com/(?:[^/]+/)+[^/]+/-/commit/[0-9a-f]{7,40}', 'gitlab'),
+    (
+        r'^https?://(?:www\.)?gitlab\.com/'
+        r'[A-Za-z0-9][A-Za-z0-9._-]{0,254}'
+        r'/?$',
+        'gitlab',
+    ),
+    # Hugging Face — profile or profile/repo URLs. Module handles denylist.
+    (
+        r'^https?://(?:www\.)?huggingface\.co/'
+        r'[A-Za-z0-9][A-Za-z0-9._-]{0,94}'
+        r'(?:/[^/?#]+)?/?(?:[?#].*)?$',
+        'huggingface',
+    ),
+    # LinkedIn — /in, /posts, /pulse only. Module handles bot-block detection.
+    (r'linkedin\.com/(?:in|posts|pulse)/[A-Za-z0-9_%-]+', 'linkedin'),
 ]
 
 PARSERS = {
@@ -46,6 +63,9 @@ PARSERS = {
     'claude': 'claude',
     'gdoc': 'gdoc',
     'github': 'github',
+    'gitlab': 'gitlab',
+    'huggingface': 'huggingface',
+    'linkedin': 'linkedin',
     'notion': 'notion',
 }
 
