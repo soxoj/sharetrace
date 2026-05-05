@@ -18,13 +18,9 @@ Or use two community-run alternatives:
 
 ## 📖 Usage examples
 
+> See [Advanced usage](#-advanced-usage) below for JSON output, batch mode (`-i`), saving to a file (`-o`), and other flags.
+
 ```bash
-# Output as JSON for piping
-python -m sharetrace <url> --json
-
-# List all supported platforms
-python -m sharetrace --list
-
 # TikTok share link — extracts sharer identity + device + share method
 python -m sharetrace "https://vm.tiktok.com/<code>"
 
@@ -48,9 +44,6 @@ python -m sharetrace "https://huggingface.co/<username>"
 
 # Notion public page — leaks editor names + UUIDs in one POST
 python -m sharetrace "https://<workspace>.notion.site/<page>"
-
-# Override the default Google Drive API key (if it gets revoked)
-SHARETRACE_GDOC_API_KEY=<your-key> python -m sharetrace <drive-url>
 ```
 
 ## ⚙️ Installation
@@ -90,6 +83,31 @@ A self-hosted Flask wrapper with a browser UI is available: [voelspriet/sharetra
 <p align="center">
   <img width="700" alt="Screenshot of share.whopostedwhat.com" src="https://github.com/user-attachments/assets/54d5ee25-0a73-457b-aa8b-4bf7a6a90c24" />
 </p>
+
+## 🛠 Advanced usage
+
+```bash
+# Output as JSON for piping
+python -m sharetrace <url> --json
+
+# List all supported platforms
+python -m sharetrace --list
+
+# Save a single result to a file (format inferred from .csv / .json extension)
+python -m sharetrace <url> -o result.csv
+python -m sharetrace <url> -o result.json
+
+# Batch mode — one URL per line, '#' comments and blank lines ignored
+cat > urls.txt <<EOF
+https://github.com/<username>
+https://huggingface.co/<username>
+# https://linkedin.com/in/<slug>   ← skipped
+EOF
+python -m sharetrace -i urls.txt -o results.csv
+
+# Override the default Google Drive API key (if it gets revoked)
+SHARETRACE_GDOC_API_KEY=<your-key> python -m sharetrace <drive-url>
+```
 
 ## 😊 SOWEL classification
 This tool uses the following OSINT techniques:

@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sharetrace-osint"
+version = "0.1.0"
+description = "Reveal the identity behind a share link — OSINT for 17+ platforms (TikTok, Instagram, Discord, Notion, Google Docs, GitHub, LinkedIn, ...)"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+authors = [{name = "Soxoj", email = "soxoj@protonmail.com"}]
+keywords = ["osint", "share-link", "identity", "metadata", "extraction", "investigation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet",
+    "Topic :: Security",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "curl-cffi",
+    "colorama",
+    "cloudscraper",
+]
+
+[project.urls]
+Homepage = "https://github.com/soxoj/sharetrace"
+Repository = "https://github.com/soxoj/sharetrace"
+Issues = "https://github.com/soxoj/sharetrace/issues"
+
+[project.scripts]
+sharetrace = "sharetrace.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sharetrace*"]
+exclude = ["tests*", "tools*", "LLM*", "assets*"]

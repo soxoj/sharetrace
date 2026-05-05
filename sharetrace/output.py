@@ -1,5 +1,7 @@
+import csv
+import json
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 class Colors:
     CYAN = '\033[96m'
@@ -167,3 +169,71 @@ def print_supported_platforms():
     for platform, name in PLATFORM_NAMES.items():
         print(f"  - {name}")
     print()
+
+
+def _csv_cell(value: Any) -> str:
+    if value is None:
+        return ''
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def _csv_columns(records: List[Dict[str, Any]]) -> List[str]:
+    base = ['url', 'platform', 'status', 'error']
+    seen = set(base)
+    ordered: List[str] = []
+    # Stable curated order first.
+    for key in FIELD_LABELS:
+        ordered.append(key)
+        seen.add(key)
+    # Append any keys we haven't accounted for, sorted for determinism.
+    extras = set()
+    for rec in records:
+        for key in (rec.get('data') or {}):
+            if key not in seen:
+                extras.add(key)
+    return base + ordered + sorted(extras)
+
+
+def write_csv(records: List[Dict[str, Any]], path: str) -> None:
+    columns = _csv_columns(records)
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(columns)
+        for rec in records:
+            data = rec.get('data') or {}
+            row = []
+            for col in columns:
+                if col == 'url':
+                    row.append(_csv_cell(rec.get('url')))
+                elif col == 'platform':
+                    row.append(_csv_cell(rec.get('platform')))
+                elif col == 'status':
+                    row.append('error' if rec.get('error') else 'success')
+                elif col == 'error':
+                    row.append(_csv_cell(rec.get('error')))
+                else:
+                    row.append(_csv_cell(data.get(col)))
+            writer.writerow(row)
+
+
+def write_json(records: List[Dict[str, Any]], path: str) -> None:
+    payload = records[0] if len(records) == 1 else records
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+        f.write('\n')
+
+
+def write_output(records: List[Dict[str, Any]], path: str) -> None:
+    lower = path.lower()
+    if lower.endswith('.csv'):
+        write_csv(records, path)
+    elif lower.endswith('.json'):
+        write_json(records, path)
+    else:
+        raise ValueError(
+            f"Unsupported output extension for {path!r}; use .csv or .json"
+        )
