@@ -8,6 +8,7 @@ from .substack import substack
 from .suno import suno
 from .telegram import telegram
 from .tiktok import tiktok
+from .youtube import youtube
 
 __all__ = [
     'chatgpt',
@@ -20,4 +21,5 @@ __all__ = [
     'suno',
     'telegram',
     'tiktok',
+    'youtube',
 ]

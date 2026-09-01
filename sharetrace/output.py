@@ -50,6 +50,7 @@ PLATFORM_NAMES = {
     'huggingface': 'Hugging Face',
     'linkedin': 'LinkedIn',
     'notion': 'Notion',
+    'youtube': 'YouTube',
 }
 
 FIELD_LABELS = {
@@ -97,6 +98,9 @@ FIELD_LABELS = {
     'space_domain': 'Workspace Domain',
     'other_editors': 'Other Editors',
     'published_at': 'Published',
+    'channel_id': 'Channel ID',
+    'channel_internal_id': 'Channel Internal ID (Bot API: -100{id})',
+    'message_id': 'Message ID',
 }
 
 

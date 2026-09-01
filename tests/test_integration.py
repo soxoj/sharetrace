@@ -381,3 +381,204 @@ class TestParseUrlIntegration:
         assert result["data"]["username"] == "zaphod_42007"
         assert result["data"]["name"] == "Zaphod_42007"
         assert result["data"]["profile_url"] == "https://suno.com/@zaphod_42007/"
+
+
+# ---------------------------------------------------------------------------
+# Telegram — offline decoding of URL-embedded IDs
+# ---------------------------------------------------------------------------
+class TestTelegramPrivateAndPlusIntegration:
+    def test_private_channel_decodes_ids(self):
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/c/4395357680/42")
+        d = result["data"]
+        assert d["channel_internal_id"] == 4395357680
+        assert d["channel_id"] == -1004395357680  # "-100" prefix per Bot API convention
+        assert d["message_id"] == 42
+        assert "private" in d["url_type"].lower()
+
+    def test_plus_invite_new_format_is_opaque(self):
+        # Real 16-char (12-byte) +hash from the wild. New Telegram invite format
+        # does not encode the creator id; module must say so instead of returning junk.
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/+cSEYklbAh0Q5NDM0")
+        assert "error" in result
+        assert "opaque" in result["error"].lower()
+
+    def test_plus_invite_legacy_format_still_decodes(self):
+        # Legacy 16-byte joinchat-shaped payload wrapped in +hash also works.
+        import base64, struct
+        from sharetrace.modules.telegram import telegram
+        user_id = 987654321
+        payload = struct.pack('<I', user_id) + b'\x00' * 12
+        hash_str = base64.urlsafe_b64encode(payload).decode().rstrip('=')
+        result = telegram(f"https://t.me/+{hash_str}")
+        assert result["data"]["user_id"] == user_id
+
+
+# ---------------------------------------------------------------------------
+# Telegram — public preview via t.me/s/{username}
+# ---------------------------------------------------------------------------
+class TestTelegramPublicIntegration:
+    def test_pavel_durov_user(self):
+        from sharetrace.modules.telegram import telegram
+        try:
+            result = telegram("https://t.me/durov")
+        except Exception:
+            pytest.skip("Telegram unavailable")
+        if "error" in result:
+            pytest.skip(f"Telegram returned error: {result['error']}")
+
+        data = result["data"]
+        assert data["username"] == "durov"
+        assert data["name"] == "Pavel Durov"
+        assert isinstance(data.get("bio"), str)
+        assert data["avatar_url"].startswith("https://")
+
+    def test_public_channel_with_subscribers(self):
+        # Telegram's own channel — many-million subscribers, stable handle.
+        from sharetrace.modules.telegram import telegram
+        try:
+            result = telegram("https://t.me/telegram")
+        except Exception:
+            pytest.skip("Telegram unavailable")
+        if "error" in result:
+            pytest.skip(f"Telegram returned error: {result['error']}")
+
+        data = result["data"]
+        assert data["username"] == "telegram"
+        assert isinstance(data.get("name"), str) and len(data["name"]) > 0
+        # Subscriber count present and > 1M.
+        assert data.get("follower_count", 0) > 1_000_000
+
+
+# ---------------------------------------------------------------------------
+# YouTube — video, channel, share-marker
+# ---------------------------------------------------------------------------
+class TestYouTubeIntegration:
+    def test_video_watch_url(self):
+        # Rick Astley — Never Gonna Give You Up. If this ever disappears from
+        # YouTube we have a bigger problem than this test.
+        from sharetrace.modules.youtube import youtube
+        try:
+            result = youtube("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        except Exception:
+            pytest.skip("YouTube unavailable")
+        if "error" in result:
+            pytest.skip(f"YouTube returned error: {result['error']}")
+
+        d = result["data"]
+        assert d["video_id"] == "dQw4w9WgXcQ"
+        assert d["channel_id"] == "UCuAXFkgsw1L7xaCfnd5JJOw"
+        assert d["name"] == "Rick Astley"
+        assert isinstance(d["view_count"], int) and d["view_count"] > 1_000_000_000
+        assert d["published_at"].startswith("2009-10-2")
+        assert "share_method" not in d  # no si=
+
+    def test_video_short_link_with_si_marker(self):
+        from sharetrace.modules.youtube import youtube
+        try:
+            result = youtube("https://youtu.be/dQw4w9WgXcQ?si=abcd1234EFGH5678")
+        except Exception:
+            pytest.skip("YouTube unavailable")
+        if "error" in result:
+            pytest.skip(f"YouTube returned error: {result['error']}")
+
+        assert result["data"]["share_method"].startswith("youtube_share_button")
+        assert "si=" in result["data"]["share_method"]
+
+    def test_channel_by_ucid(self):
+        # Google Developers — corporate stable channel.
+        from sharetrace.modules.youtube import youtube
+        try:
+            result = youtube("https://www.youtube.com/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw")
+        except Exception:
+            pytest.skip("YouTube unavailable")
+        if "error" in result:
+            pytest.skip(f"YouTube returned error: {result['error']}")
+
+        d = result["data"]
+        assert d["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
+        assert isinstance(d.get("name"), str) and "Google" in d["name"]
+        # Only assert existence, not exact value — the "Joined" date is stable but
+        # subscriber/view counts change constantly.
+        assert isinstance(d.get("subscriber_count"), int)
+
+    def test_channel_by_handle(self):
+        from sharetrace.modules.youtube import youtube
+        try:
+            result = youtube("https://www.youtube.com/@GoogleDevelopers")
+        except Exception:
+            pytest.skip("YouTube unavailable")
+        if "error" in result:
+            pytest.skip(f"YouTube returned error: {result['error']}")
+
+        assert result["data"]["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
+
+    def test_share_marker_pure_url_parsing(self):
+        # Offline — verifies the parameter detector without touching the network.
+        from sharetrace.modules.youtube import _detect_share_marker
+        assert _detect_share_marker("https://youtu.be/x?si=abc") == "si"
+        assert _detect_share_marker("https://youtu.be/x?sl=abc") == "sl"
+        assert _detect_share_marker("https://youtu.be/x?is=abc") == "is"
+        assert _detect_share_marker("https://youtu.be/x?feature=share") is None
+
+
+# ---------------------------------------------------------------------------
+# GitHub — owner/repo delegates to owner-profile scan
+# ---------------------------------------------------------------------------
+class TestGitHubRepoIntegration:
+    def test_repo_url_attributes_to_owner(self):
+        # torvalds/linux — Linus's profile is the most stable target on GitHub.
+        # Assert on the shape and username; specific email set drifts.
+        from sharetrace.modules.github import github
+        try:
+            result = github("https://github.com/torvalds/linux")
+        except Exception:
+            pytest.skip("GitHub unavailable")
+        if "error" in result:
+            # 403 (rate limit) or empty push events → skip, not fail.
+            pytest.skip(f"GitHub returned error: {result['error']}")
+
+        d = result["data"]
+        assert d["username"] == "torvalds"
+        # At least one bucket of emails is populated.
+        assert bool(d.get("emails")) or bool(d.get("noreply_emails"))
+
+
+# ---------------------------------------------------------------------------
+# share.google resolver — routing through router.resolve_url
+# ---------------------------------------------------------------------------
+class TestShareGoogleResolverIntegration:
+    def test_share_google_resolves(self):
+        from sharetrace.router import resolve_url
+        try:
+            resolved = resolve_url("https://share.google/MgqPAr0lxDLyPpMgL")
+        except Exception:
+            pytest.skip("share.google unavailable")
+        # Resolver must hop past both share.google and www.google.com/share.google
+        # and stop at the non-shortener URL. In practice the fixture link lands on
+        # instagram.com/dyahdee/.
+        assert "share.google" not in resolved
+        assert resolved != "https://share.google/MgqPAr0lxDLyPpMgL"
+
+
+# ---------------------------------------------------------------------------
+# Google Drive folder — real owner leak via Drive v2beta API
+# ---------------------------------------------------------------------------
+class TestGDocFolderIntegration:
+    def test_public_folder_owner(self):
+        # Public folder from the analysis document (kyu.rpm.pro). If the folder
+        # is later revoked or made private, skip — don't fail.
+        from sharetrace.modules.gdoc import gdoc
+        try:
+            result = gdoc("https://drive.google.com/drive/folders/1x-JhS4WLppkh42grXG1nemiLXopzJB6x")
+        except Exception:
+            pytest.skip("Google Drive API unavailable")
+        if "error" in result:
+            pytest.skip(f"Drive returned error: {result['error']}")
+
+        d = result["data"]
+        assert d["doc_id"] == "1x-JhS4WLppkh42grXG1nemiLXopzJB6x"
+        # Owner identity fields are what we care about; exact values may change if the
+        # owner renames themselves — but at least one of {name, email, google_id} must be set.
+        assert d.get("name") or d.get("email") or d.get("google_id")

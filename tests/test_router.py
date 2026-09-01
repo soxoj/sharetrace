@@ -52,6 +52,29 @@ class TestDetectPlatform:
         ("https://www.linkedin.com/pulse/article-slug-here", "linkedin"),
         ("https://www.notion.so/Page-Name-fddafc82569742378ef439681f4709b0", "notion"),
         ("https://block-by-block.notion.site/Download-digital-goodies-fddafc82569742378ef439681f4709b0", "notion"),
+        # TikTok — profile and video URLs
+        ("https://www.tiktok.com/@shanewww2", "tiktok"),
+        ("https://tiktok.com/@nata.art.ua", "tiktok"),
+        ("https://www.tiktok.com/@ilya_navvro/video/7620415832434265351", "tiktok"),
+        # Telegram — public, invites, private
+        ("https://t.me/durov", "telegram"),
+        ("https://t.me/WagonWheelZ/12345", "telegram"),
+        ("https://t.me/+cSEYklbAh0Q5NDM0", "telegram"),
+        ("https://t.me/c/4395357680/42", "telegram"),
+        # GitHub owner/repo (non-commit)
+        ("https://github.com/soxoj/sharetrace", "github"),
+        ("https://github.com/soxoj/sharetrace/", "github"),
+        # Google Drive folder variants
+        ("https://drive.google.com/drive/folders/1x-JhS4WLppkh42grXG1nemiLXopzJB6x", "gdoc"),
+        ("https://drive.google.com/drive/mobile/folders/1t-hTqg0-02t0cnc5SypHnb8t3CfE3bXU", "gdoc"),
+        ("https://drive.google.com/drive/u/0/folders/1ynTc3z38AkkR-6-gl4b6UmmQunb0oo6A", "gdoc"),
+        # YouTube
+        ("https://youtu.be/v4ovpzOn2xw?si=wFPf5DQ6O-N3cX6j", "youtube"),
+        ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "youtube"),
+        ("https://youtube.com/shorts/ou2X53h-SYk", "youtube"),
+        ("https://www.youtube.com/live/3ly9wg6YgkY", "youtube"),
+        ("https://www.youtube.com/@0dayCTF", "youtube"),
+        ("https://www.youtube.com/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw", "youtube"),
     ])
     def test_valid_urls(self, url, expected):
         assert detect_platform(url) == expected
@@ -60,13 +83,19 @@ class TestDetectPlatform:
         "https://google.com",
         "https://example.com/share/123",
         "https://tiktok.com/foryou",
+        # instagram profile URLs remain unsupported for now (TIER-C in the plan)
         "https://instagram.com/username",
+        # Telegram — reserved paths must not match the public regex
+        "https://t.me/c/",
+        "https://t.me/+",
+        # YouTube negatives
+        "https://www.youtube.com/",
+        "https://www.youtube.com/results?search_query=cats",
         "not a url",
         "",
         "https://docs.google.com/",
         "https://www.google.com/maps/place/xyz",
         "https://github.com/",
-        "https://github.com/torvalds/linux",
         "https://github.com/torvalds/linux/issues/1",
         "https://github.com/torvalds/linux/commit/",
         "https://github.com/torvalds/linux/commit/xyz",
@@ -105,7 +134,6 @@ class TestGetSupportedPlatforms:
         platforms = get_supported_platforms()
         expected = ["tiktok", "chatgpt", "discord", "instagram", "microsoft",
                     "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github",
-                    "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github",
-                    "gitlab", "huggingface", "linkedin", "notion"]
+                    "gitlab", "huggingface", "linkedin", "notion", "youtube"]
         for p in expected:
             assert p in platforms, f"{p} missing from supported platforms"

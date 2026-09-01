@@ -22,6 +22,11 @@ PROFILE_RE = re.compile(
     r'([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)'
     r'/?(?:\?.*)?$'
 )
+REPO_RE = re.compile(
+    r'^https?://(?:www\.)?github\.com/'
+    r'([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)'
+    r'/([A-Za-z0-9._-]+)/?(?:\?.*)?$'
+)
 NOREPLY_DOMAIN = "users.noreply.github.com"
 
 UA = {"User-Agent": "sharetrace/1.0"}
@@ -44,6 +49,11 @@ def github(url: str) -> dict:
 
     m = PROFILE_RE.match(url.strip())
     if m:
+        return _from_profile(m.group(1))
+
+    m = REPO_RE.match(url.strip())
+    if m:
+        # ponytail: attribute repo to its owner via public events; extend to repo metadata if needed.
         return _from_profile(m.group(1))
 
     return {"error": "Invalid URL format for GitHub link"}

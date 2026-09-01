@@ -1,6 +1,6 @@
 <h1 align="center">ShareTrace</h1>
 <p align="center">🎭 Reveal the identity behind a share link</p>
-<p align="center"><b>17 sources</b> • no API keys • one command</p>
+<p align="center"><b>18 sources</b> • no API keys • one command</p>
 <p align="center">
   <img src="assets/capture.png" />
 </p>
@@ -44,6 +44,12 @@ python -m sharetrace "https://huggingface.co/<username>"
 
 # Notion public page — leaks editor names + UUIDs in one POST
 python -m sharetrace "https://<workspace>.notion.site/<page>"
+
+# YouTube video or channel — extracts channel_id, name, views, publish date
+python -m sharetrace "https://www.youtube.com/@<handle>"
+
+# share.google shortener — auto-resolved, then dispatched to the real handler
+python -m sharetrace "https://share.google/<code>"
 ```
 
 ## ⚙️ Installation
@@ -58,7 +64,7 @@ pip install -r requirements.txt
 
 | Name                | Extracts | Notes |
 | ------------------- | -------- | ----- |
-| [TikTok](https://tiktok.com)              | User ID, Username, Nickname, Country, Avatar, Signature, Device, Share Method, Timestamp, Follower/Following/Video/Heart Counts, Private Account, DM Available | Requires short share link (`vm.tiktok.com` / `vt.tiktok.com`) |
+| [TikTok](https://tiktok.com)              | User ID, Username, Nickname, Country, Avatar, Signature, Device, Share Method, Timestamp, Follower/Following/Video/Heart Counts, Private Account, DM Available | Short share links (`vm.tiktok.com` / `vt.tiktok.com`) give the richest data (sharer's device + share method). Direct `@handle` / `/video/` URLs return author data without device/share-method |
 | [Instagram](https://instagram.com)        | Username, User ID, Display Name, Profile URL, Profile Pic | Sharer data might expire within a few days; only fresh share links contain identity info |
 | [Discord](https://discord.com)            | User ID, Username, Display Name, Avatar, Creation Time | Vanity invites may not contain inviter data |
 | [ChatGPT](https://chatgpt.com)            | Display Name | |
@@ -68,13 +74,14 @@ pip install -r requirements.txt
 | [Pinterest](https://pinterest.com)        | Username, User ID, Display Name, Avatar, Profile URL | Requires short share link (`pin.it`) with invite code |
 | [Substack](https://substack.com)          | User ID, Name, Handle, Bio, Avatar, Profile Setup Date | Requires referral share link (`?r=` parameter) |
 | [Suno](https://suno.com)                  | Username, Display Name, Avatar, Profile URL | |
-| [Telegram](https://telegram.org)          | User ID | Decoded from joinchat link hash; no HTTP request needed. Links starting with `AAAAA` decode to user_id=0 and contain no useful data |
-| [Google Docs](https://docs.google.com)    | Owner Email, Name, Google ID, Avatar, Creation Date, Last Edit | Works for Docs, Sheets, Slides, Drawings, Forms, Drive files, Apps Script, Jamboard, My Maps. Requires document to be publicly shared. API key overridable via `SHARETRACE_GDOC_API_KEY` |
-| [GitHub](https://github.com)              | Email, Name, Commit SHA, Repo (commit URL); Username, Emails list (profile URL) | Commit URL: parses `.patch` mbox `From:` header. Profile URL: scans recent public PushEvents (last 90 days). `users.noreply.github.com` emails flagged. Profile route subject to GitHub's 60/hr unauth rate limit |
+| [Telegram](https://telegram.org)          | User ID (invite creator); Username, Name, Bio, Followers, Avatar (public channel/user); Channel ID (private channel) | Legacy `joinchat/{hash}` and `+{hash}` invites decode the creator user_id offline; new-format short `+` tokens are opaque and reported as such. `t.me/{username}` scrapes the `/s/` preview for OG tags + subscriber count. `t.me/c/{internal_id}/{msg_id}` decodes to the full Bot-API `-100{id}` channel id (no scrape possible without membership) |
+| [Google Docs](https://docs.google.com)    | Owner Email, Name, Google ID, Avatar, Creation Date, Last Edit | Works for Docs, Sheets, Slides, Drawings, Forms, Drive files, Drive folders, Apps Script, Jamboard, My Maps. Requires document to be publicly shared. API key overridable via `SHARETRACE_GDOC_API_KEY` |
+| [GitHub](https://github.com)              | Email, Name, Commit SHA, Repo (commit URL); Username, Emails list (profile or repo URL) | Commit URL: parses `.patch` mbox `From:` header. Profile / repo URL: scans the owner's recent public PushEvents (last 90 days) — `github.com/{owner}/{repo}` delegates to `{owner}`. `users.noreply.github.com` emails flagged. Profile route subject to GitHub's 60/hr unauth rate limit |
 | [GitLab](https://gitlab.com)              | Email, Name, Commit SHA, Project (commit URL); Username, Public Email (profile URL) | Same `.patch` mbox trick as GitHub for commits. Profile lookup via `/api/v4/users` returns `public_email` only when the user opted in. Self-hosted GitLab instances out of scope |
 | [Hugging Face](https://huggingface.co)    | Username, Full Name, Avatar, Account Type, Followers, Organizations, Profile URL | Uses public `/api/users/<name>/overview` endpoint. Repo URLs (`/<user>/<repo>`) resolve to owner |
 | [LinkedIn](https://linkedin.com)          | Display Name, Headline, Avatar, Profile URL | OG-tag scrape with realistic UA. Honestly surfaces `is_blocked: True` on 999/403/429/authwall — block rate dynamic |
 | [Notion](https://notion.so)               | Name, Avatar, User ID, Workspace Name/Domain, Other Editors | Public pages leak editor UUIDs in block permissions; resolved in one `syncRecordValuesMain` POST (no auth, no cookies). Works for `notion.so/Page-<uuid>` and `*.notion.site/` links. Notion has started redacting email fields for some accounts |
+| [YouTube](https://youtube.com)            | Video: video_id, title, channel_id, channel name, views, publish date, share_method. Channel: channel_id, @handle, name, bio, country, joined date, subscribers, views, video count, external links, avatar | Handles `youtu.be`, `watch?v=`, `shorts/`, `live/`, `embed/`, `@handle`, `/channel/UC…`. Parses `ytInitialData` / `ytInitialPlayerResponse` from the HTML. `?si=`/`?sl=`/`?is=` share tokens are surfaced as `share_method` but cannot be reverse-engineered to the sharer (server-side opaque tokens) |
 
 ## 🌐 Web interface (community)
 
