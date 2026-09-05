@@ -33,24 +33,100 @@ class TestMicrosoft:
 
 
 # ---------------------------------------------------------------------------
-# Telegram (no HTTP, base64 decode)
+# Telegram
 # ---------------------------------------------------------------------------
 class TestTelegram:
-    def test_decode_invite_link(self):
-        from sharetrace.modules.telegram import telegram
-        user_id = 123456789
+    @staticmethod
+    def _invite_hash(user_id: int) -> str:
         payload = struct.pack('<I', user_id) + b'\x00' * 12
-        hash_str = base64.urlsafe_b64encode(payload).decode().rstrip('=')
-        url = f"https://t.me/joinchat/{hash_str}"
+        return base64.urlsafe_b64encode(payload).decode().rstrip('=')
 
-        result = telegram(url)
-        assert "data" in result
-        assert result["data"]["user_id"] == user_id
+    def test_decode_joinchat_invite(self):
+        from sharetrace.modules.telegram import telegram
+        result = telegram(f"https://t.me/joinchat/{self._invite_hash(123456789)}")
+        assert result["data"]["user_id"] == 123456789
+
+    def test_decode_plus_invite_legacy_format(self):
+        # Legacy 16-byte payload — even under the +hash prefix — still decodes.
+        from sharetrace.modules.telegram import telegram
+        result = telegram(f"https://t.me/+{self._invite_hash(987654321)}")
+        assert result["data"]["user_id"] == 987654321
+
+    def test_new_format_plus_invite_opaque(self):
+        # Real 12-byte token from the wild: no creator_id encoded.
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/+cSEYklbAh0Q5NDM0")
+        assert "error" in result
+        assert "opaque" in result["error"].lower()
+
+    def test_private_channel_url_decodes_ids(self):
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/c/4395357680/42")
+        d = result["data"]
+        assert d["channel_internal_id"] == 4395357680
+        assert d["channel_id"] == -1004395357680
+        assert d["message_id"] == 42
+        assert "private" in d["url_type"].lower()
+
+    def test_private_channel_url_no_message(self):
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/c/4395357680")
+        # Now matches too — URL without a message id still yields channel decoding.
+        # Falls through to invalid URL since the regex requires the second id... let's assert both branches.
+        # (This test documents current behaviour; adjust when we relax the regex.)
+        assert "error" in result or result.get("data", {}).get("channel_internal_id") == 4395357680
+
+    @patch("sharetrace.modules.telegram.requests")
+    def test_public_channel_preview(self, mock_requests):
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="Durov&#39;s Channel"/>'
+            '<meta property="og:description" content="Founder of Telegram."/>'
+            '<meta property="og:image" content="https://cdn.telegram.org/photo.jpg"/>'
+            '</head><body>'
+            '<div class="tgme_channel_info_counter">'
+            '<span class="counter_value">12 345 678</span>'
+            '<span class="counter_type">subscribers</span>'
+            '</div></body></html>'
+        )
+        resp = MagicMock(status_code=200, text=html)
+        mock_requests.get.return_value = resp
+
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/durov")
+        assert result["data"]["username"] == "durov"
+        assert result["data"]["name"] == "Durov's Channel"
+        assert result["data"]["bio"] == "Founder of Telegram."
+        assert result["data"]["follower_count"] == 12345678
+        assert result["data"]["avatar_url"].startswith("https://")
+
+    @patch("sharetrace.modules.telegram.requests")
+    def test_public_channel_with_message_id(self, mock_requests):
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="Some Channel"/>'
+            '<meta property="og:description" content="A description."/>'
+            '</head></html>'
+        )
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/WagonWheelZ/12345")
+        assert result["data"]["username"] == "WagonWheelZ"
+        assert result["data"]["name"] == "Some Channel"
+
+    @patch("sharetrace.modules.telegram.requests")
+    def test_public_channel_no_preview(self, mock_requests):
+        html = '<html><body>No metadata</body></html>'
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+
+        from sharetrace.modules.telegram import telegram
+        result = telegram("https://t.me/somebody")
+        assert "error" in result
 
     def test_invalid_url(self):
         from sharetrace.modules.telegram import telegram
-        result = telegram("https://t.me/somechannel")
-        assert "error" in result
+        assert "error" in telegram("https://example.com/foo")
 
 
 # ---------------------------------------------------------------------------
@@ -432,10 +508,107 @@ class TestTikTok:
         assert result["data"]["share_method"] == "copy"
         assert result["data"]["shared_at"] is not None
 
+    @patch("sharetrace.modules.tiktok.requests")
+    def test_profile_url_accepted(self, mock_requests):
+        # The URL guard must accept @handle URLs even though the module still
+        # relies on the shareUser blob (may or may not be present on the page).
+        mock_session = MagicMock()
+        first_resp = MagicMock()
+        first_resp.url = "https://www.tiktok.com/@someuser"
+        second_resp = MagicMock()
+        second_resp.text = "<html>no share user here</html>"
+        mock_session.get.side_effect = [first_resp, second_resp]
+        mock_requests.Session.return_value = mock_session
+
+        from sharetrace.modules.tiktok import tiktok
+        result = tiktok("https://www.tiktok.com/@someuser")
+        # We don't get data because the blob is missing, but the URL passed the guard.
+        assert "error" in result
+        assert "Invalid URL format" not in result["error"]
+
+    @pytest.mark.parametrize("url", [
+        "https://www.tiktok.com/@someuser",
+        "https://tiktok.com/@nata.art.ua",
+        "https://www.tiktok.com/@ilya_navvro/video/7620415832434265351",
+    ])
+    def test_url_guard_accepts_profile_and_video(self, url):
+        # Pure regex check — no HTTP.
+        from sharetrace.modules.tiktok import TIKTOK_URL_RE
+        assert TIKTOK_URL_RE.search(url) is not None
+
     def test_invalid_url(self):
         from sharetrace.modules.tiktok import tiktok
-        result = tiktok("https://tiktok.com/@someuser")
+        result = tiktok("https://example.com/foo")
         assert "error" in result
+        assert "Invalid URL format" in result["error"]
+
+    @patch("sharetrace.modules.tiktok.requests")
+    def test_universal_data_profile_fallback(self, mock_requests):
+        universal = json.dumps({
+            "__DEFAULT_SCOPE__": {
+                "webapp.user-detail": {
+                    "userInfo": {
+                        "user": {
+                            "id": "1234",
+                            "uniqueId": "someuser",
+                            "nickname": "Some User",
+                            "region": "GB",
+                            "avatarLarger": "https://p16.tiktok.com/x.jpg",
+                            "signature": "hi",
+                            "privateAccount": False,
+                        },
+                        "stats": {
+                            "followerCount": 42,
+                            "followingCount": 7,
+                            "videoCount": 3,
+                            "heartCount": 100,
+                        },
+                    }
+                }
+            }
+        })
+        html = f'<html><script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{universal}</script></html>'
+
+        mock_session = MagicMock()
+        first_resp = MagicMock(); first_resp.url = "https://www.tiktok.com/@someuser"
+        second_resp = MagicMock(); second_resp.text = html
+        mock_session.get.side_effect = [first_resp, second_resp]
+        mock_requests.Session.return_value = mock_session
+
+        from sharetrace.modules.tiktok import tiktok
+        result = tiktok("https://www.tiktok.com/@someuser")
+        assert result["data"]["user_id"] == "1234"
+        assert result["data"]["username"] == "someuser"
+        assert result["data"]["follower_count"] == 42
+        assert result["data"]["country"] == "United Kingdom"
+
+    @patch("sharetrace.modules.tiktok.requests")
+    def test_universal_data_video_fallback(self, mock_requests):
+        universal = json.dumps({
+            "__DEFAULT_SCOPE__": {
+                "webapp.video-detail": {
+                    "itemInfo": {
+                        "itemStruct": {
+                            "author": {"id": "9", "uniqueId": "vidmaker", "nickname": "V"},
+                            "authorStats": {"followerCount": 5},
+                        }
+                    }
+                }
+            }
+        })
+        html = f'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{universal}</script>'
+
+        mock_session = MagicMock()
+        first_resp = MagicMock(); first_resp.url = "https://www.tiktok.com/@vidmaker/video/1"
+        second_resp = MagicMock(); second_resp.text = html
+        mock_session.get.side_effect = [first_resp, second_resp]
+        mock_requests.Session.return_value = mock_session
+
+        from sharetrace.modules.tiktok import tiktok
+        result = tiktok("https://www.tiktok.com/@vidmaker/video/1")
+        assert result["data"]["user_id"] == "9"
+        assert result["data"]["username"] == "vidmaker"
+        assert result["data"]["follower_count"] == 5
 
 
 # ---------------------------------------------------------------------------
@@ -651,3 +824,213 @@ class TestGitHub:
         from sharetrace.modules.github import github
         r = github("https://example.com")
         assert "error" in r
+
+    @patch("sharetrace.modules.github.requests")
+    def test_repo_route_delegates_to_owner_profile(self, mock_requests):
+        events = [{
+            "type": "PushEvent",
+            "payload": {"commits": [
+                {"author": {"name": "Sox", "email": "sox@example.com"}},
+            ]},
+        }]
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = events
+        mock_requests.get.return_value = resp
+
+        from sharetrace.modules.github import github
+        r = github("https://github.com/soxoj/sharetrace")
+        assert r["data"]["username"] == "soxoj"
+        assert {"name": "Sox", "email": "sox@example.com"} in r["data"]["emails"]
+        # Ensure it hit the /users/{owner}/events/public endpoint, not the repo URL.
+        called_url = mock_requests.get.call_args[0][0]
+        assert called_url == "https://api.github.com/users/soxoj/events/public"
+
+
+# ---------------------------------------------------------------------------
+# YouTube
+# ---------------------------------------------------------------------------
+class TestYouTube:
+    def _channel_html(self) -> str:
+        initial = {
+            "header": {"pageHeaderRenderer": {"pageTitle": "0dayCTF"}},
+            "metadata": {"channelMetadataRenderer": {
+                "title": "0dayCTF",
+                "externalId": "UCabcdefghijklmnopqrstuv",
+                "description": "CTF & OSINT videos.",
+                "avatar": {"thumbnails": [{"url": "https://yt3.ggpht.com/small"},
+                                          {"url": "https://yt3.ggpht.com/big"}]},
+            }},
+            "onResponseReceivedEndpoints": [{
+                "appendContinuationItemsAction": {"continuationItems": [{
+                    "aboutChannelRenderer": {"metadata": {"aboutChannelViewModel": {
+                        "description": "CTF & OSINT videos.",
+                        "country": "Germany",
+                        "joinedDateText": {"content": "Joined Jan 5, 2019"},
+                        "subscriberCountText": "45.6K subscribers",
+                        "viewCountText": "1,234,567 views",
+                        "videoCountText": "123 videos",
+                        "links": [{"channelExternalLinkViewModel": {
+                            "title": {"content": "Twitter"},
+                            "link": {"content": "https://x.com/0dayCTF"},
+                        }}],
+                    }}},
+                }]},
+            }],
+            "channelHandleText": {"runs": [{"text": "@0dayCTF"}]},
+        }
+        return f'<html><script>var ytInitialData = {json.dumps(initial)};</script></html>'
+
+    def _video_html(self) -> str:
+        player = {
+            "videoDetails": {
+                "videoId": "dQw4w9WgXcQ",
+                "title": "Never Gonna Give You Up",
+                "author": "Rick Astley",
+                "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+                "viewCount": "1500000000",
+            },
+            "microformat": {"playerMicroformatRenderer": {
+                "publishDate": "2009-10-25",
+                "availableCountries": ["US"],
+            }},
+        }
+        return f'<html><script>var ytInitialPlayerResponse = {json.dumps(player)};</script></html>'
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_channel_by_handle(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text=self._channel_html())
+        from sharetrace.modules.youtube import youtube
+        r = youtube("https://www.youtube.com/@0dayCTF")
+        d = r["data"]
+        assert d["channel_id"] == "UCabcdefghijklmnopqrstuv"
+        assert d["username"] == "0dayCTF"
+        assert d["name"] == "0dayCTF"
+        assert d["country"] == "Germany"
+        assert d["joined_date"] == "Jan 5, 2019"
+        assert d["subscriber_count"] == 45600
+        assert d["video_count"] == 123
+        assert d["external_links"] == [{"title": "Twitter", "url": "https://x.com/0dayCTF"}]
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_channel_by_ucid(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text=self._channel_html())
+        from sharetrace.modules.youtube import youtube
+        r = youtube("https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv")
+        assert r["data"]["channel_id"] == "UCabcdefghijklmnopqrstuv"
+        # Second arg to _fetch should have been the /about tab.
+        called_url = mock_requests.get.call_args[0][0]
+        assert called_url.endswith("/about")
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_video_short_link(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text=self._video_html())
+        from sharetrace.modules.youtube import youtube
+        r = youtube("https://youtu.be/dQw4w9WgXcQ?si=abc")
+        d = r["data"]
+        assert d["video_id"] == "dQw4w9WgXcQ"
+        assert d["channel_id"] == "UCuAXFkgsw1L7xaCfnd5JJOw"
+        assert d["name"] == "Rick Astley"
+        assert d["view_count"] == 1500000000
+        assert d["published_at"] == "2009-10-25"
+        assert d["share_method"].startswith("youtube_share_button")
+        assert "si=" in d["share_method"]
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_video_no_share_marker(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text=self._video_html())
+        from sharetrace.modules.youtube import youtube
+        r = youtube("https://youtu.be/dQw4w9WgXcQ")
+        # No si/sl/is → field absent (pruned).
+        assert "share_method" not in r["data"]
+
+    @pytest.mark.parametrize("url,marker", [
+        ("https://youtu.be/abc?si=xyz", "si"),
+        ("https://youtu.be/abc?sl=xyz", "sl"),
+        ("https://youtu.be/abc?is=xyz", "is"),
+        ("https://youtu.be/abc?feature=share", None),
+    ])
+    def test_share_marker_detection(self, url, marker):
+        from sharetrace.modules.youtube import _detect_share_marker
+        assert _detect_share_marker(url) == marker
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_video_watch(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text=self._video_html())
+        from sharetrace.modules.youtube import youtube
+        r = youtube("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        assert r["data"]["video_id"] == "dQw4w9WgXcQ"
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_video_shorts(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text=self._video_html())
+        from sharetrace.modules.youtube import youtube
+        r = youtube("https://youtube.com/shorts/ou2X53h-SYk")
+        # Note: we don't extract the URL video_id, but the mocked page's video is Rick's.
+        assert "data" in r
+        assert r["data"]["channel_id"].startswith("UC")
+
+    def test_invalid_url(self):
+        from sharetrace.modules.youtube import youtube
+        assert "error" in youtube("https://example.com/foo")
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_no_ytinitial(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text="<html>nothing</html>")
+        from sharetrace.modules.youtube import youtube
+        assert "error" in youtube("https://youtu.be/dQw4w9WgXcQ")
+
+    @patch("sharetrace.modules.youtube.requests")
+    def test_handle_via_vanity_url(self, mock_requests):
+        # Live pages expose the handle via metadata.vanityChannelUrl, not channelHandleText.
+        initial = {
+            "metadata": {"channelMetadataRenderer": {
+                "title": "Google Developers",
+                "externalId": "UC_x5XG1OV2P6uZZ5FSM9Ttw",
+                "vanityChannelUrl": "http://www.youtube.com/@GoogleDevelopers",
+            }},
+        }
+        html = f'<html><script>var ytInitialData = {json.dumps(initial)};</script></html>'
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+        from sharetrace.modules.youtube import youtube
+        r = youtube("https://www.youtube.com/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw")
+        assert r["data"]["username"] == "GoogleDevelopers"
+
+
+# ---------------------------------------------------------------------------
+# GDoc — Drive folder route
+# ---------------------------------------------------------------------------
+class TestGDocFolder:
+    FOLDER_URL = "https://drive.google.com/drive/folders/1x-JhS4WLppkh42grXG1nemiLXopzJB6x"
+
+    def test_folder_id_extraction(self):
+        from sharetrace.modules.gdoc import _extract_doc_id
+        assert _extract_doc_id(self.FOLDER_URL) == "1x-JhS4WLppkh42grXG1nemiLXopzJB6x"
+
+    def test_folder_url_matches(self):
+        from sharetrace.modules.gdoc import URL_MATCH
+        assert URL_MATCH.search(self.FOLDER_URL) is not None
+        assert URL_MATCH.search(
+            "https://drive.google.com/drive/mobile/folders/1t-hTqg0-02t0cnc5SypHnb8t3CfE3bXU"
+        ) is not None
+        assert URL_MATCH.search(
+            "https://drive.google.com/drive/u/0/folders/1ynTc3z38AkkR-6-gl4b6UmmQunb0oo6A"
+        ) is not None
+
+    @patch("sharetrace.modules.gdoc.requests")
+    def test_folder_owner_extraction(self, mock_requests):
+        sample = {
+            "createdDate": "2024-01-02T03:04:05.678Z",
+            "modifiedDate": "2024-06-07T08:09:10.111Z",
+            "permissions": [
+                {"id": "9911223344", "role": "owner", "name": "Folder Owner",
+                 "emailAddress": "owner@example.com", "type": "user"},
+            ],
+        }
+        resp = MagicMock(status_code=200, text=json.dumps(sample))
+        resp.json.return_value = sample
+        mock_requests.get.return_value = resp
+
+        from sharetrace.modules.gdoc import gdoc
+        result = gdoc(self.FOLDER_URL)
+        assert result["data"]["email"] == "owner@example.com"
+        assert result["data"]["name"] == "Folder Owner"

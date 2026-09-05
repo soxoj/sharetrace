@@ -40,14 +40,17 @@ RATE_LIMIT_SIGNALS = (
 URL_MATCH = re.compile(
     r'(docs\.google\.com/(document|spreadsheets|presentation|drawings|forms)/d/'
     r'|drive\.google\.com/file/d/'
+    r'|drive\.google\.com/drive/(?:mobile/|u/\d+/)?folders/'
     r'|script\.google\.com/d/'
     r'|jamboard\.google\.com/d/'
     r'|google\.com/maps/d/)'
 )
 
-# Prefer explicit /d/{id} segment; fall back to ?mid= for My Maps.
+# Prefer explicit /d/{id} segment; fall back to ?mid= for My Maps
+# and /folders/{id} for Drive folders.
 DOC_ID_PATTERNS = [
     re.compile(r'/d/([A-Za-z0-9_-]{25,})'),
+    re.compile(r'/folders/([A-Za-z0-9_-]{25,})'),
     re.compile(r'[?&]mid=([A-Za-z0-9_-]{25,})'),
 ]
 

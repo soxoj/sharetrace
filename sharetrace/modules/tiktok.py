@@ -4,8 +4,14 @@ from ..utils import COUNTRY_CODES
 import json
 import re
 
+TIKTOK_URL_RE = re.compile(
+    r'(vm\.tiktok\.com|vt\.tiktok\.com|tiktok\.com/t)/[A-Za-z0-9]+'
+    r'|tiktok\.com/@[A-Za-z0-9._]+(?:/video/\d+)?/?'
+)
+
+
 def tiktok(url):
-    if not re.search(r'(vm\.tiktok\.com|vt\.tiktok\.com|tiktok\.com/t)/[A-Za-z0-9]+', url):
+    if not TIKTOK_URL_RE.search(url):
         return {"error": "Invalid URL format for TikTok share link"}
 
     headers = {
@@ -27,6 +33,11 @@ def tiktok(url):
         )
 
         if not match:
+            # Fallback: direct profile/video pages don't ship the reflow.shareUser blob,
+            # but do embed __UNIVERSAL_DATA_FOR_REHYDRATION__ with webapp.user-detail / video-detail.
+            fallback = _from_universal_data(response.text)
+            if fallback is not None:
+                return fallback
             return {"error": "Could not find share user data in response"}
 
         json_str = match.group(1)
@@ -89,3 +100,54 @@ def tiktok(url):
 
     except Exception as e:
         return {"error": f"Request failed: {str(e)}"}
+
+
+UNIVERSAL_RE = re.compile(
+    r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)</script>',
+    re.DOTALL,
+)
+
+
+def _from_universal_data(html):
+    """Extract profile/video author from the __UNIVERSAL_DATA_FOR_REHYDRATION__ blob."""
+    m = UNIVERSAL_RE.search(html)
+    if not m:
+        return None
+    try:
+        blob = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return None
+    scope = (blob.get('__DEFAULT_SCOPE__') or {})
+    # Profile page: webapp.user-detail carries userInfo.user + stats.
+    # Video page: webapp.video-detail carries itemInfo.itemStruct.author + .stats.
+    detail = scope.get('webapp.user-detail')
+    if isinstance(detail, dict):
+        info = detail.get('userInfo') or {}
+        user, stats = info.get('user') or {}, info.get('stats') or {}
+        if user.get('uniqueId'):
+            return {"data": _profile_data(user, stats)}
+    detail = scope.get('webapp.video-detail')
+    if isinstance(detail, dict):
+        item = ((detail.get('itemInfo') or {}).get('itemStruct')) or {}
+        user, stats = item.get('author') or {}, item.get('authorStats') or {}
+        if user.get('uniqueId'):
+            return {"data": _profile_data(user, stats)}
+    return None
+
+
+def _profile_data(user, stats):
+    username = user.get('uniqueId')
+    return {
+        "profile": f"https://www.tiktok.com/@{username}",
+        "user_id": user.get('id'),
+        "username": username,
+        "nickname": user.get('nickname'),
+        "country": COUNTRY_CODES.get(user.get('region', ''), user.get('region')),
+        "avatar_url": user.get('avatarLarger'),
+        "signature": user.get('signature'),
+        "follower_count": stats.get('followerCount'),
+        "following_count": stats.get('followingCount'),
+        "video_count": stats.get('videoCount'),
+        "heart_count": stats.get('heartCount') or stats.get('heart'),
+        "private_account": user.get('privateAccount'),
+    }

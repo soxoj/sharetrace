@@ -12,7 +12,7 @@ from .output import (
     print_supported_platforms,
     write_output,
 )
-from .router import detect_platform, get_parser, get_supported_platforms
+from .router import detect_platform, get_parser, get_supported_platforms, resolve_url
 
 
 def _read_url_file(path: str) -> List[str]:
@@ -28,7 +28,10 @@ def _read_url_file(path: str) -> List[str]:
 
 def _process_url(url: str, verbose: bool) -> Dict[str, Any]:
     record: Dict[str, Any] = {'url': url, 'platform': None}
-    platform = detect_platform(url)
+    resolved = resolve_url(url)
+    if resolved != url:
+        record['resolved_url'] = resolved
+    platform = detect_platform(resolved)
     if not platform:
         record['error'] = 'Unsupported platform or invalid URL'
         return record
@@ -40,7 +43,7 @@ def _process_url(url: str, verbose: bool) -> Dict[str, Any]:
         return record
 
     try:
-        result = parser_func(url)
+        result = parser_func(resolved)
     except Exception as e:
         if verbose:
             record['error'] = f'{type(e).__name__}: {e}'
@@ -64,6 +67,9 @@ def _process_url(url: str, verbose: bool) -> Dict[str, Any]:
 
 
 def _print_record(record: Dict[str, Any], verbose: bool) -> None:
+    if record.get('resolved_url'):
+        print(f"{Colors.DIM}[→]{Colors.RESET} Resolved to "
+              f"{Colors.CYAN}{record['resolved_url']}{Colors.RESET}\n")
     if 'error' in record:
         if verbose:
             details = record.get('error_details')
@@ -80,6 +86,8 @@ def _record_to_json(record: Dict[str, Any], verbose: bool, include_url: bool = F
     out: Dict[str, Any] = {}
     if include_url:
         out['url'] = record['url']
+    if record.get('resolved_url'):
+        out['resolved_url'] = record['resolved_url']
     if 'error' in record:
         if verbose:
             out['error'] = record['error']
@@ -107,6 +115,8 @@ def _print_progress(idx: int, total: int, record: Dict[str, Any]) -> None:
     else:
         tag = f"{Colors.GREEN}{Colors.BOLD}OK   {Colors.RESET}"
         suffix = ''
+    if record.get('resolved_url'):
+        suffix += f"  {Colors.DIM}→ {record['resolved_url']}{Colors.RESET}"
     print(f"[{idx}/{total}] {tag} {platform:<11} {record['url']}{suffix}")
 
 

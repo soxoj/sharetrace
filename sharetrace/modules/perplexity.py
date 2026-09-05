@@ -23,6 +23,10 @@ def perplexity(url):
             impersonate="chrome",
             headers=headers
         )
+
+        if response.status_code == 403:
+            return {"error": "Request failed: the site is protected"}
+
         data = response.json()
 
         if data.get('status') != 'success':
