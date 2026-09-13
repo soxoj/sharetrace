@@ -1,6 +1,6 @@
 <h1 align="center">ShareTrace</h1>
 <p align="center">🎭 Reveal the identity behind a share link</p>
-<p align="center"><b>18 sources</b> • no API keys • one command</p>
+<p align="center"><b>19 sources</b> • no API keys • one command</p>
 <p align="center">
   <img src="assets/capture.png" />
 </p>
@@ -72,6 +72,7 @@ pip install -r requirements.txt
 | [Perplexity](https://perplexity.ai)       | Username, Avatar, User ID | |
 | [Microsoft](https://sharepoint.com)       | Email | From SharePoint/OneDrive personal links; no HTTP request needed |
 | [Pinterest](https://pinterest.com)        | Username, User ID, Display Name, Avatar, Profile URL | Requires short share link (`pin.it`) with invite code |
+| [Reddit](https://reddit.com)              | Post author Username, Profile URL, Subreddit, Post URL, Post Title | Share links (`reddit.com/r/{sub}/s/{token}`) only: the redirect is followed to the canonical post and its public `.json` listing gives the author. The share token does not identify the sharer. Comment authors and user profiles are out of scope |
 | [Substack](https://substack.com)          | User ID, Name, Handle, Bio, Avatar, Profile Setup Date | Requires referral share link (`?r=` parameter) |
 | [Suno](https://suno.com)                  | Username, Display Name, Avatar, Profile URL | |
 | [Telegram](https://telegram.org)          | User ID (invite creator); Username, Name, Bio, Followers, Avatar (public channel/user); Channel ID (private channel) | Legacy `joinchat/{hash}` and `+{hash}` invites decode the creator user_id offline; new-format short `+` tokens are opaque and reported as such. `t.me/{username}` scrapes the `/s/` preview for OG tags + subscriber count. `t.me/c/{internal_id}/{msg_id}` decodes to the full Bot-API `-100{id}` channel id (no scrape possible without membership) |

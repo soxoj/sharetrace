@@ -58,6 +58,7 @@ class TestDetectPlatform:
         ("https://www.tiktok.com/@ilya_navvro/video/7620415832434265351", "tiktok"),
         # Telegram — public, invites, private
         ("https://t.me/durov", "telegram"),
+        ("https://www.reddit.com/r/Python/s/AbC123xYz", "reddit"),
         ("https://t.me/WagonWheelZ/12345", "telegram"),
         ("https://t.me/+cSEYklbAh0Q5NDM0", "telegram"),
         ("https://t.me/c/4395357680/42", "telegram"),
@@ -83,6 +84,9 @@ class TestDetectPlatform:
         "https://google.com",
         "https://example.com/share/123",
         "https://tiktok.com/foryou",
+        # Reddit: only share links, not canonical posts or profiles
+        "https://www.reddit.com/r/Python/comments/abc123/some_post/",
+        "https://www.reddit.com/user/spez",
         # instagram profile URLs remain unsupported for now (TIER-C in the plan)
         "https://instagram.com/username",
         # Telegram — reserved paths must not match the public regex
@@ -134,6 +138,6 @@ class TestGetSupportedPlatforms:
         platforms = get_supported_platforms()
         expected = ["tiktok", "chatgpt", "discord", "instagram", "microsoft",
                     "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github",
-                    "gitlab", "huggingface", "linkedin", "notion", "youtube"]
+                    "gitlab", "huggingface", "linkedin", "notion", "reddit", "youtube"]
         for p in expected:
             assert p in platforms, f"{p} missing from supported platforms"

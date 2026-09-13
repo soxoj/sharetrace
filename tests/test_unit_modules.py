@@ -1034,3 +1034,96 @@ class TestGDocFolder:
         result = gdoc(self.FOLDER_URL)
         assert result["data"]["email"] == "owner@example.com"
         assert result["data"]["name"] == "Folder Owner"
+
+
+# ---------------------------------------------------------------------------
+# Reddit
+# ---------------------------------------------------------------------------
+class TestReddit:
+    SHARE = "https://www.reddit.com/r/Python/s/AbC123xYz"
+    CANONICAL = "https://www.reddit.com/r/Python/comments/1abcde/my_post_title"
+
+    @staticmethod
+    def _redirect(location):
+        resp = MagicMock()
+        resp.status_code = 302
+        resp.headers = {"location": location}
+        return resp
+
+    @staticmethod
+    def _listing(post):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = [
+            {"data": {"children": [{"data": post}]}},
+            {"data": {"children": []}},
+        ]
+        return resp
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_share_link_resolves_to_post_author(self, mock_requests):
+        mock_requests.get.side_effect = [
+            self._redirect(self.CANONICAL + "/?share_id=xyz&utm_source=share"),
+            self._listing({"author": "spez", "subreddit": "Python", "title": "My post title"}),
+        ]
+
+        from sharetrace.modules.reddit import reddit
+        result = reddit(self.SHARE)
+
+        assert result["data"] == {
+            "username": "spez",
+            "profile_url": "https://www.reddit.com/user/spez",
+            "subreddit": "Python",
+            "post_url": self.CANONICAL,
+            "post_title": "My post title",
+        }
+        first, second = mock_requests.get.call_args_list
+        assert first.args[0] == self.SHARE
+        assert first.kwargs["allow_redirects"] is False
+        assert second.args[0] == self.CANONICAL + ".json"
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_relative_redirect_is_followed(self, mock_requests):
+        mock_requests.get.side_effect = [
+            self._redirect("/r/Python/comments/1abcde/my_post_title/"),
+            self._listing({"author": "spez", "subreddit": "Python", "title": "t"}),
+        ]
+
+        from sharetrace.modules.reddit import reddit
+        assert reddit(self.SHARE)["data"]["post_url"] == self.CANONICAL
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_no_redirect_is_an_error(self, mock_requests):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {}
+        mock_requests.get.return_value = resp
+
+        from sharetrace.modules.reddit import reddit
+        result = reddit(self.SHARE)
+        assert "error" in result
+        assert mock_requests.get.call_count == 1
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_deleted_author(self, mock_requests):
+        mock_requests.get.side_effect = [
+            self._redirect(self.CANONICAL),
+            self._listing({"author": "[deleted]", "subreddit": "Python", "title": "t"}),
+        ]
+
+        from sharetrace.modules.reddit import reddit
+        assert "error" in reddit(self.SHARE)
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_unexpected_json(self, mock_requests):
+        bad = MagicMock()
+        bad.status_code = 200
+        bad.json.return_value = {"message": "Too Many Requests"}
+        mock_requests.get.side_effect = [self._redirect(self.CANONICAL), bad]
+
+        from sharetrace.modules.reddit import reddit
+        assert "error" in reddit(self.SHARE)
+
+    def test_non_share_url(self):
+        from sharetrace.modules.reddit import reddit
+        assert "error" in reddit("https://www.reddit.com/r/Python/comments/1abcde/x/")
