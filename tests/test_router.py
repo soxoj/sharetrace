@@ -17,6 +17,8 @@ class TestDetectPlatform:
         ("https://company-my.sharepoint.com/:f:/g/personal/john_doe_company_com/EaBcDeFgHiJ", "microsoft"),
         ("https://www.perplexity.ai/search/some-search-slug-abc123", "perplexity"),
         ("https://pin.it/AbC1dEf", "pinterest"),
+        ("https://www.reddit.com/r/Python/s/abc456GHIJ", "reddit"),
+        ("https://reddit.com/r/AskReddit/s/Zx9Yw8Vu7T", "reddit"),
         ("https://substack.com/@someuser/note/12345", "substack"),
         ("https://suno.com/s/abc123XYZ", "suno"),
         ("https://t.me/joinchat/AAAA_BBBBccccDDDD", "telegram"),
@@ -108,6 +110,8 @@ class TestDetectPlatform:
         "https://www.linkedin.com/company/microsoft",
         "https://www.linkedin.com/feed/",
         "https://www.linkedin.com/",
+        # Only share links: a canonical post URL carries no share token to resolve.
+        "https://www.reddit.com/r/Python/comments/1f2g3h/my_first_package/",
     ])
     def test_invalid_urls(self, url):
         assert detect_platform(url) is None
@@ -134,6 +138,6 @@ class TestGetSupportedPlatforms:
         platforms = get_supported_platforms()
         expected = ["tiktok", "chatgpt", "discord", "instagram", "microsoft",
                     "perplexity", "pinterest", "substack", "suno", "telegram", "claude", "gdoc", "github",
-                    "gitlab", "huggingface", "linkedin", "notion", "youtube"]
+                    "gitlab", "huggingface", "linkedin", "notion", "youtube", "reddit"]
         for p in expected:
             assert p in platforms, f"{p} missing from supported platforms"

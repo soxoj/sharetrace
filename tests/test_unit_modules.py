@@ -1034,3 +1034,171 @@ class TestGDocFolder:
         result = gdoc(self.FOLDER_URL)
         assert result["data"]["email"] == "owner@example.com"
         assert result["data"]["name"] == "Folder Owner"
+
+
+# ---------------------------------------------------------------------------
+# Reddit (share link -> redirect -> post listing, oEmbed as fallback)
+# ---------------------------------------------------------------------------
+class TestReddit:
+    SHARE = "https://www.reddit.com/r/Python/s/abc456GHIJ"
+    CANONICAL = "https://www.reddit.com/r/Python/comments/1f2g3h/my_first_package/"
+    LOCATION = CANONICAL + "?share_id=XyZ123&utm_content=1&utm_medium=android_app&utm_source=share"
+
+    @staticmethod
+    def _listing(author="spez", subreddit="Python", title="My first package"):
+        post = {"kind": "t3", "data": {"author": author, "subreddit": subreddit, "title": title}}
+        comments = {"kind": "Listing", "data": {"children": []}}
+        return [{"kind": "Listing", "data": {"children": [post]}}, comments]
+
+    @staticmethod
+    def _routed(mock_requests, routes):
+        """Answer requests.get by URL prefix, so each hop gets its own response."""
+        calls = []
+
+        def get(url, **kwargs):
+            calls.append((url, kwargs))
+            for prefix, resp in routes:
+                if url.startswith(prefix):
+                    return resp
+            raise AssertionError(f"unexpected request to {url}")
+
+        mock_requests.get.side_effect = get
+        return calls
+
+    @staticmethod
+    def _json(status, payload):
+        return MagicMock(status_code=status, headers={}, json=MagicMock(return_value=payload))
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_share_link_resolves_to_author_via_listing(self, mock_requests):
+        calls = self._routed(mock_requests, [
+            (self.SHARE, MagicMock(status_code=302, headers={"location": self.LOCATION})),
+            (self.CANONICAL + ".json", self._json(200, self._listing())),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        result = reddit(self.SHARE)
+
+        assert result["data"] == {
+            "username": "spez",
+            "profile_url": "https://www.reddit.com/user/spez/",
+            "subreddit": "Python",
+            "post_url": self.CANONICAL,
+            "post_title": "My first package",
+        }
+        # The redirect is read, not followed.
+        assert calls[0][1]["allow_redirects"] is False
+        # share_id / utm_* tracking parameters do not leak into the canonical URL.
+        assert "share_id" not in result["data"]["post_url"]
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_relative_location_is_resolved(self, mock_requests):
+        self._routed(mock_requests, [
+            (self.SHARE, MagicMock(status_code=301, headers={"Location": "/r/Python/comments/1f2g3h/my_first_package/"})),
+            (self.CANONICAL + ".json", self._json(200, self._listing())),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        assert reddit(self.SHARE)["data"]["post_url"] == self.CANONICAL
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_listing_refused_falls_back_to_oembed(self, mock_requests):
+        # Reddit answers the JSON listing with 403 to many session-less networks.
+        self._routed(mock_requests, [
+            (self.SHARE, MagicMock(status_code=302, headers={"location": self.LOCATION})),
+            (self.CANONICAL + ".json", MagicMock(status_code=403, headers={})),
+            ("https://www.reddit.com/oembed", self._json(200, {
+                "author_name": "spez", "title": "My first package", "provider_name": "reddit",
+            })),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        data = reddit(self.SHARE)["data"]
+        assert data["username"] == "spez"
+        assert data["post_title"] == "My first package"
+        # oEmbed has no subreddit field; it comes from Reddit's own redirect.
+        assert data["subreddit"] == "Python"
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_subreddit_comes_from_the_redirect_not_the_input(self, mock_requests):
+        # Reddit finds posts by id alone, so the input's subreddit is not evidence
+        # of anything. Here the link was typed lower-case and oEmbed has no
+        # subreddit field: the answer must still be Reddit's own spelling.
+        self._routed(mock_requests, [
+            ("https://www.reddit.com/r/python/s/abc456GHIJ",
+             MagicMock(status_code=302, headers={"location": self.LOCATION})),
+            (self.CANONICAL + ".json", MagicMock(status_code=403, headers={})),
+            ("https://www.reddit.com/oembed", self._json(200, {"author_name": "spez"})),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        data = reddit("https://www.reddit.com/r/python/s/abc456GHIJ")["data"]
+        assert data["subreddit"] == "Python"
+        assert data["post_url"] == self.CANONICAL
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_listing_answer_is_not_second_guessed_by_oembed(self, mock_requests):
+        calls = self._routed(mock_requests, [
+            (self.SHARE, MagicMock(status_code=302, headers={"location": self.LOCATION})),
+            (self.CANONICAL + ".json", self._json(200, self._listing())),
+            ("https://www.reddit.com/oembed", self._json(200, {"author_name": "someone_else"})),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        assert reddit(self.SHARE)["data"]["username"] == "spez"
+        assert not any(url.startswith("https://www.reddit.com/oembed") for url, _ in calls)
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_expired_token_redirects_to_subreddit(self, mock_requests):
+        # Measured: an unknown token 307s to the subreddit root, not a 404.
+        self._routed(mock_requests, [
+            (self.SHARE, MagicMock(status_code=307, headers={"location": "https://www.reddit.com/r/Python/"})),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        result = reddit(self.SHARE)
+        assert "error" in result
+        assert "does not resolve to a post" in result["error"]
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_no_redirect_is_an_error(self, mock_requests):
+        self._routed(mock_requests, [(self.SHARE, MagicMock(status_code=200, headers={}))])
+
+        from sharetrace.modules.reddit import reddit
+        result = reddit(self.SHARE)
+        assert "error" in result
+        assert "HTTP 200" in result["error"]
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_deleted_author_is_an_error(self, mock_requests):
+        self._routed(mock_requests, [
+            (self.SHARE, MagicMock(status_code=302, headers={"location": self.LOCATION})),
+            (self.CANONICAL + ".json", self._json(200, self._listing(author="[deleted]"))),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        assert reddit(self.SHARE) == {"error": "Post author is deleted"}
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_both_sources_refused(self, mock_requests):
+        self._routed(mock_requests, [
+            (self.SHARE, MagicMock(status_code=302, headers={"location": self.LOCATION})),
+            (self.CANONICAL + ".json", MagicMock(status_code=403, headers={})),
+            ("https://www.reddit.com/oembed", MagicMock(status_code=403, headers={})),
+        ])
+
+        from sharetrace.modules.reddit import reddit
+        result = reddit(self.SHARE)
+        assert "error" in result
+        assert "refused" in result["error"]
+
+    @patch("sharetrace.modules.reddit.requests")
+    def test_request_failure(self, mock_requests):
+        mock_requests.get.side_effect = Exception("connection reset")
+
+        from sharetrace.modules.reddit import reddit
+        assert reddit(self.SHARE) == {"error": "Request failed: connection reset"}
+
+    def test_invalid_url(self):
+        from sharetrace.modules.reddit import reddit
+        assert "error" in reddit("https://www.reddit.com/r/Python/comments/1f2g3h/")
