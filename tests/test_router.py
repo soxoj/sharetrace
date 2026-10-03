@@ -58,6 +58,10 @@ class TestDetectPlatform:
         ("https://www.tiktok.com/@ilya_navvro/video/7620415832434265351", "tiktok"),
         # Telegram — public, invites, private
         ("https://t.me/durov", "telegram"),
+        # Hugging Face — profile, repo, deep repo paths, Spaces and datasets
+        ("https://huggingface.co/spaces/gradio/hello_world", "huggingface"),
+        ("https://huggingface.co/datasets/google/fleurs", "huggingface"),
+        ("https://huggingface.co/google/flan-t5-base/tree/main", "huggingface"),
         ("https://t.me/WagonWheelZ/12345", "telegram"),
         ("https://t.me/+cSEYklbAh0Q5NDM0", "telegram"),
         ("https://t.me/c/4395357680/42", "telegram"),
