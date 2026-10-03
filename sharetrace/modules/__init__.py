@@ -1,25 +1,14 @@
-from .chatgpt import chatgpt
-from .discord import discord
-from .instagram import instagram
-from .microsoft import microsoft
-from .perplexity import perplexity
-from .pinterest import pinterest
-from .substack import substack
-from .suno import suno
-from .telegram import telegram
-from .tiktok import tiktok
-from .youtube import youtube
+"""Extractor modules, one per platform.
 
-__all__ = [
-    'chatgpt',
-    'discord',
-    'instagram',
-    'microsoft',
-    'perplexity',
-    'pinterest',
-    'substack',
-    'suno',
-    'telegram',
-    'tiktok',
-    'youtube',
-]
+Deliberately empty of re-exports. `from .telegram import telegram` bound the
+function to the package attribute `sharetrace.modules.telegram`, shadowing the
+submodule of the same name. On Python 3.10 that makes
+`mock.patch("sharetrace.modules.telegram.requests")` resolve the function
+instead of the module and raise AttributeError — 31 tests failed there for this
+reason alone.
+
+Nothing imported these names: `router.py` reaches modules through
+`import_module("sharetrace.modules.<platform>")`, and the list had drifted out
+of date anyway (github, gitlab, gdoc, linkedin, huggingface, claude and notion
+were never in it).
+"""
