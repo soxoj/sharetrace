@@ -61,11 +61,12 @@ PLATFORM_PATTERNS = [
         r'/?$',
         'gitlab',
     ),
-    # Hugging Face — profile or profile/repo URLs. Module handles denylist.
+    # Hugging Face — profile, repo, Space or dataset URLs at any depth. The
+    # module picks the owner out of the path and handles the denylist.
     (
         r'^https?://(?:www\.)?huggingface\.co/'
         r'[A-Za-z0-9][A-Za-z0-9._-]{0,94}'
-        r'(?:/[^/?#]+)?/?(?:[?#].*)?$',
+        r'(?:/[^/?#]+)*/?(?:[?#].*)?$',
         'huggingface',
     ),
     # LinkedIn — /in, /posts, /pulse only. Module handles bot-block detection.
