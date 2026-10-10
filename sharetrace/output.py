@@ -40,6 +40,7 @@ PLATFORM_NAMES = {
     'microsoft': 'Microsoft',
     'perplexity': 'Perplexity',
     'pinterest': 'Pinterest',
+    'reddit': 'Reddit',
     'substack': 'Substack',
     'telegram': 'Telegram',
     'suno': 'Suno',
@@ -101,6 +102,9 @@ FIELD_LABELS = {
     'channel_id': 'Channel ID',
     'channel_internal_id': 'Channel Internal ID (Bot API: -100{id})',
     'message_id': 'Message ID',
+    'subreddit': 'Subreddit',
+    'post_url': 'Post',
+    'post_title': 'Post Title',
 }
 
 
