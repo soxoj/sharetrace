@@ -536,6 +536,25 @@ class TestSuno:
 # TikTok
 # ---------------------------------------------------------------------------
 class TestTikTok:
+    @pytest.mark.parametrize("final_url, expected_error", [
+        ("https://www.tiktok.com/", "Share link no longer resolves to a video or profile"),
+        ("https://www.tiktok.com/?_r=1", "Share link no longer resolves to a video or profile"),
+        ("https://www.tiktok.com/@someuser/?_r=1", "Could not find share user data in response"),
+        ("https://www.tiktok.com/@someuser/video/123/?_r=1", "Could not find share user data in response"),
+    ])
+    @patch("sharetrace.modules.tiktok.requests")
+    def test_redirect_without_share_user(self, mock_requests, final_url, expected_error):
+        first_resp = MagicMock()
+        first_resp.url = final_url
+        second_resp = MagicMock()
+        second_resp.text = "<html>no share user here</html>"
+        mock_session = mock_requests.Session.return_value
+        mock_session.get.side_effect = [first_resp, second_resp]
+
+        from sharetrace.modules.tiktok import tiktok
+        assert tiktok("https://vt.tiktok.com/ZSabc123x/") == {"error": expected_error}
+        assert mock_session.get.call_count == (1 if "no longer resolves" in expected_error else 2)
+
     @patch("sharetrace.modules.tiktok.requests")
     def test_extract_share_user(self, mock_requests):
         share_user_json = json.dumps({
