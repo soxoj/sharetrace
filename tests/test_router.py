@@ -12,6 +12,7 @@ class TestDetectPlatform:
         ("https://claude.ai/share/abcdef12-3456-7890-abcd-ef1234567890", "claude"),
         ("https://discord.com/invite/abcXYZ", "discord"),
         ("https://discord.gg/abcXYZ", "discord"),
+        ("https://discord.gg/discord-developers", "discord"),
         ("https://www.instagram.com/reel/ABC123_def/", "instagram"),
         ("https://www.instagram.com/p/ABC123_def/", "instagram"),
         ("https://company-my.sharepoint.com/:f:/g/personal/john_doe_company_com/EaBcDeFgHiJ", "microsoft"),
