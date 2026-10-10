@@ -225,6 +225,19 @@ class TestDiscord:
         assert "created_at" in result["data"]
 
     @patch("sharetrace.modules.discord.requests")
+    def test_hyphenated_vanity_code_is_not_truncated(self, mock_requests):
+        """discord-developers used to be requested as "discord", a different invite."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"guild": {"name": "Discord Developers"}}
+        mock_resp.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_resp
+
+        from sharetrace.modules.discord import discord
+        discord("https://discord.gg/discord-developers")
+        requested = mock_requests.get.call_args[0][0]
+        assert requested.endswith("/invites/discord-developers"), requested
+
+    @patch("sharetrace.modules.discord.requests")
     def test_no_inviter(self, mock_requests):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"guild": {"name": "Test Server"}}

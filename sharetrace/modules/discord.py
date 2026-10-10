@@ -3,7 +3,7 @@ import re
 
 
 def discord(url):
-    match = re.search(r'(?:discord\.com/invite/|discord\.gg/)([a-zA-Z0-9]+)', url)
+    match = re.search(r'(?:discord\.com/invite/|discord\.gg/)([A-Za-z0-9_-]+)', url)
     if not match:
         return {"error": "Invalid Discord invite URL format"}
 

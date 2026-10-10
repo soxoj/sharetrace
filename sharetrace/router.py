@@ -13,7 +13,7 @@ PLATFORM_PATTERNS = [
     (r'tiktok\.com/@[A-Za-z0-9._]+(?:/video/\d+)?/?', 'tiktok'),
     (r'chatgpt\.com/share/[a-f0-9-]+', 'chatgpt'),
     (r'claude\.ai/share/[a-f0-9-]+', 'claude'),
-    (r'(discord\.com/invite|discord\.gg)/[a-zA-Z0-9]+', 'discord'),
+    (r'(discord\.com/invite|discord\.gg)/[A-Za-z0-9_-]+', 'discord'),
     (r'instagram\.com/(reel|p)/[A-Za-z0-9_-]+', 'instagram'),
     (r'sharepoint\.com/:[a-z]:/g/personal/[^/]+/', 'microsoft'),
     (r'perplexity\.ai/search/[A-Za-z0-9._-]+', 'perplexity'),
