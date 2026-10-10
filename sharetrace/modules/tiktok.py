@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 from curl_cffi import requests
 from ..utils import COUNTRY_CODES
 import json
@@ -24,6 +25,9 @@ def tiktok(url):
         session = requests.Session(impersonate="chrome", allow_redirects=True)
         response = session.get(url)
         final_url = response.url
+
+        if not re.fullmatch(r'/@[A-Za-z0-9._]+(?:/video/\d+)?/?', urlsplit(final_url).path):
+            return {"error": "Share link no longer resolves to a video or profile"}
 
         response = session.get(final_url, headers=headers)
 
