@@ -67,6 +67,7 @@ pip install -r requirements.txt
 | [TikTok](https://tiktok.com)              | User ID, Username, Nickname, Country, Avatar, Signature, Device, Share Method, Timestamp, Follower/Following/Video/Heart Counts, Private Account, DM Available | Short share links (`vm.tiktok.com` / `vt.tiktok.com`) give the richest data (sharer's device + share method). Direct `@handle` / `/video/` URLs return author data without device/share-method |
 | [Instagram](https://instagram.com)        | Username, User ID, Display Name, Profile URL, Profile Pic | Sharer data might expire within a few days; only fresh share links contain identity info |
 | [Discord](https://discord.com)            | User ID, Username, Display Name, Avatar, Creation Time | Vanity invites may not contain inviter data |
+| [Discord Channels](https://discord.com) | Guild ID, Channel ID, Message ID, Creation Timestamps, URL Type | `/channels/` links are decoded offline from Discord snowflake IDs. Supports guild messages, guild channels, and DM links. Author identity is not available from this URL format |
 | [ChatGPT](https://chatgpt.com)            | Display Name | |
 | [Claude](https://claude.ai)               | Display Name, User ID | |
 | [Perplexity](https://perplexity.ai)       | Username, Avatar, User ID | |

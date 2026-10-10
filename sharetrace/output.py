@@ -99,12 +99,16 @@ FIELD_LABELS = {
     'space_domain': 'Workspace Domain',
     'other_editors': 'Other Editors',
     'published_at': 'Published',
+    'guild_id': 'Guild ID',
+    'guild_created_at': 'Guild Created',
     'channel_id': 'Channel ID',
+    'channel_created_at': 'Channel Created',
     'channel_internal_id': 'Channel Internal ID (Bot API: -100{id})',
     'message_id': 'Message ID',
     'subreddit': 'Subreddit',
     'post_url': 'Post',
     'post_title': 'Post Title',
+    'message_created_at': 'Message Created',
 }
 
 

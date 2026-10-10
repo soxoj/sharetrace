@@ -266,6 +266,65 @@ class TestDiscord:
         result = discord("https://discord.gg/testCode")
         assert result["data"]["avatar_url"].endswith(".gif")
 
+# ---------------------------------------------------------------------------
+# Discord channels (offline parsing)
+# ---------------------------------------------------------------------------
+class TestDiscordChannels:
+    def test_guild_message_decodes_ids_and_timestamps(self):
+        from sharetrace.modules.discord_channels import discord_channels
+
+        result = discord_channels(
+            "https://discord.com/channels/"
+            "175928847299117063/"
+            "175928847299117063/"
+            "175928847299117063"
+        )
+
+        data = result["data"]
+
+        assert data["guild_id"] == 175928847299117063
+        assert data["channel_id"] == 175928847299117063
+        assert data["message_id"] == 175928847299117063
+        assert data["url_type"] == "Guild message"
+
+        assert data["guild_created_at"] == "2016-04-30T11:18:25.796000+00:00"
+        assert data["channel_created_at"] == "2016-04-30T11:18:25.796000+00:00"
+        assert data["message_created_at"] == "2016-04-30T11:18:25.796000+00:00"
+
+    def test_dm_link(self):
+        from sharetrace.modules.discord_channels import discord_channels
+
+        result = discord_channels(
+            "https://discord.com/channels/@me/175928847299117063"
+        )
+
+        data = result["data"]
+
+        assert data["channel_id"] == 175928847299117063
+        assert data["url_type"] == "DM"
+        assert "guild_id" not in data
+
+    def test_guild_channel_without_message(self):
+        from sharetrace.modules.discord_channels import discord_channels
+
+        result = discord_channels(
+            "https://discord.com/channels/"
+            "175928847299117063/"
+            "175928847299117063"
+        )
+
+        data = result["data"]
+
+        assert data["url_type"] == "Guild channel"
+        assert "message_id" not in data
+
+    def test_invalid_url(self):
+        from sharetrace.modules.discord_channels import discord_channels
+
+        result = discord_channels("https://discord.com/example")
+
+        assert "error" in result
+
 
 # ---------------------------------------------------------------------------
 # Instagram
