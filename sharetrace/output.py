@@ -98,6 +98,9 @@ FIELD_LABELS = {
     'space_domain': 'Workspace Domain',
     'other_editors': 'Other Editors',
     'published_at': 'Published',
+    'pin_id': 'Pin ID',
+    'description': 'Description',
+    'image_url': 'Image',
     'channel_id': 'Channel ID',
     'channel_internal_id': 'Channel Internal ID (Bot API: -100{id})',
     'message_id': 'Message ID',
@@ -108,7 +111,7 @@ def print_banner():
     line1 = f"{Colors.GRADIENT_1}   _____ __                   ______"
     line2 = f"{Colors.GRADIENT_2}  / ___// /_  ____ _________ /_  __/________ _________"
     line3 = f"{Colors.GRADIENT_3}  \\__ \\/ __ \\/ __ `/ ___/ _ \\ / / / ___/ __ `/ ___/ _ \\"
-    line4 = f"{Colors.GRADIENT_4} ___/ / / / / /_/ / /  /  __// / / /  / /_/ / /__/  __/"
+    line4 = f"{Colors.GRADIENT_4} ___/ / / / /_/ / /  /  __// / / /  / /_/ / /__/  __/"
     line5 = f"{Colors.GRADIENT_5}/____/_/ /_/\\__,_/_/   \\___//_/ /_/   \\__,_/\\___/\\___/"
     
     banner = f"""

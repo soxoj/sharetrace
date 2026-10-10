@@ -18,6 +18,9 @@ PLATFORM_PATTERNS = [
     (r'sharepoint\.com/:[a-z]:/g/personal/[^/]+/', 'microsoft'),
     (r'perplexity\.ai/search/[A-Za-z0-9._-]+', 'perplexity'),
     (r'pin\.it/[A-Za-z0-9]+', 'pinterest'),
+    # Pinterest — direct pin URL or @profile URL, incl. country subdomains (in., ru., ...)
+    (r'(?:[a-z]{2,3}\.)?pinterest\.[a-z.]+/pin/[0-9]+', 'pinterest'),
+    (r'(?:[a-z]{2,3}\.)?pinterest\.[a-z.]+/@[A-Za-z0-9._]+', 'pinterest'),
     (r'substack\.com/@[^/]+/note/', 'substack'),
     (r'suno\.com/s/[A-Za-z0-9]+', 'suno'),
     (r't\.me/joinchat/[A-Za-z0-9_-]+', 'telegram'),
@@ -25,7 +28,7 @@ PLATFORM_PATTERNS = [
     (r't\.me/c/\d+/\d+', 'telegram'),
     (
         # Public username or public username + message id.
-        # Excludes reserved segments (joinchat, c, +…) via lookahead.
+        # Excludes reserved segments (joinchat, c, +...) via lookahead.
         r't\.me/(?!joinchat/|c/|\+)([A-Za-z0-9_]{5,32})(?:/\d+)?/?(?:[?#].*)?$',
         'telegram',
     ),
@@ -70,7 +73,7 @@ PLATFORM_PATTERNS = [
     ),
     # LinkedIn — /in, /posts, /pulse only. Module handles bot-block detection.
     (r'linkedin\.com/(?:in|posts|pulse)/[A-Za-z0-9_%-]+', 'linkedin'),
-    # YouTube — video (short/watch/shorts/live/embed) or channel (@handle, /channel/UC…).
+    # YouTube — video (short/watch/shorts/live/embed) or channel (@handle, /channel/UC...).
     (
         r'^https?://(?:'
         r'youtu\.be/[A-Za-z0-9_-]{11}'

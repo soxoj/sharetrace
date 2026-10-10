@@ -397,6 +397,115 @@ class TestPinterest:
         result = pinterest("https://pin.it/AbC1dEf")
         assert "error" in result
 
+    @patch("sharetrace.modules.pinterest.requests")
+    def test_direct_pin_url_extracts_og(self, mock_requests):
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="Vintage camera setup"/>'
+            '<meta property="og:description" content="Saved from example.com"/>'
+            '<meta property="og:image" content="https://i.pinimg.com/736x/abc.jpg"/>'
+            '</head><body></body></html>'
+        )
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+
+        from sharetrace.modules.pinterest import pinterest
+        result = pinterest("https://www.pinterest.com/pin/1234567890/")
+        d = result["data"]
+        assert d["pin_id"] == "1234567890"
+        assert d["name"] == "Vintage camera setup"
+        assert d["description"] == "Saved from example.com"
+        assert d["image_url"] == "https://i.pinimg.com/736x/abc.jpg"
+        assert d["url_type"] == "pin"
+
+    @patch("sharetrace.modules.pinterest.requests")
+    def test_direct_pin_country_subdomain(self, mock_requests):
+        # Country subdomains (in., ru., ...) must route to the same parser.
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="Madhubani painting"/>'
+            '</head><body></body></html>'
+        )
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+
+        from sharetrace.modules.pinterest import pinterest
+        result = pinterest("https://in.pinterest.com/pin/9988776655/")
+        assert result["data"]["pin_id"] == "9988776655"
+        assert result["data"]["name"] == "Madhubani painting"
+
+    @patch("sharetrace.modules.pinterest.requests")
+    def test_direct_pin_with_creator_json_ld(self, mock_requests):
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="Studio desk tour"/>'
+            '<script type="application/ld+json">'
+            + json.dumps({
+                "@type": "SocialMediaPosting",
+                "creator": {
+                    "@type": "Person",
+                    "name": "@maker",
+                    "url": "https://www.pinterest.com/@maker/",
+                    "image": {"url": "https://i.pinimg.com/avatars/maker.jpg"},
+                },
+            })
+            + '</script>'
+            '</head><body></body></html>'
+        )
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+
+        from sharetrace.modules.pinterest import pinterest
+        result = pinterest("https://www.pinterest.com/pin/4242424242/")
+        d = result["data"]
+        assert d["username"] == "maker"
+        assert d["profile_url"] == "https://www.pinterest.com/@maker/"
+        assert d["avatar_url"] == "https://i.pinimg.com/avatars/maker.jpg"
+
+    @patch("sharetrace.modules.pinterest.requests")
+    def test_direct_pin_no_metadata(self, mock_requests):
+        mock_requests.get.return_value = MagicMock(status_code=200, text='<html><body>nope</body></html>')
+
+        from sharetrace.modules.pinterest import pinterest
+        result = pinterest("https://www.pinterest.com/pin/1111111111/")
+        assert "error" in result
+
+    @patch("sharetrace.modules.pinterest.requests")
+    def test_profile_url(self, mock_requests):
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="Maker Studios (@maker) on Pinterest"/>'
+            '<meta property="og:description" content="Hands-on builds and teardowns."/>'
+            '<meta property="og:image" content="https://i.pinimg.com/avatars/maker_200.jpg"/>'
+            '</head><body></body></html>'
+        )
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+
+        from sharetrace.modules.pinterest import pinterest
+        result = pinterest("https://www.pinterest.com/@maker/")
+        d = result["data"]
+        assert d["username"] == "maker"
+        assert d["profile_url"] == "https://www.pinterest.com/maker/"
+        assert d["name"] == "Maker Studios"
+        assert d["avatar_url"].endswith("maker_200.jpg")
+        assert d["url_type"] == "profile"
+
+    @patch("sharetrace.modules.pinterest.requests")
+    def test_profile_url_country_subdomain(self, mock_requests):
+        html = (
+            '<html><head>'
+            '<meta property="og:title" content="Ananya (@ananya.art) on Pinterest"/>'
+            '</head><body></body></html>'
+        )
+        mock_requests.get.return_value = MagicMock(status_code=200, text=html)
+
+        from sharetrace.modules.pinterest import pinterest
+        result = pinterest("https://in.pinterest.com/@ananya.art/")
+        assert result["data"]["username"] == "ananya.art"
+        assert result["data"]["name"] == "Ananya"
+
+    def test_invalid_url(self):
+        from sharetrace.modules.pinterest import pinterest
+        result = pinterest("https://example.com/something")
+        assert "error" in result
+
 
 # ---------------------------------------------------------------------------
 # Substack
